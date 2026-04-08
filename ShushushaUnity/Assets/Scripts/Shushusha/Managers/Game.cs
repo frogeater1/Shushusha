@@ -67,6 +67,6 @@ public class Game : MonoSingletonBase<Game>
     {
         uilobby.visible = false;
         uiMain.visible = true;
-        uiMain.name = msgData.Mouse.Uid == me.Uid ? "我是鼠鼠" : "我是鲨鲨";
+        uiMain.m_name.text = msgData.Mouse.Uid == me.Uid ? "我是鼠鼠" : "我是鲨鲨";
     }
 }
