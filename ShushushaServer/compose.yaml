@@ -1,0 +1,7 @@
+﻿services:
+  shushushaserver:
+    image: shushushaserver
+    build:
+      context: .
+      dockerfile: ShushushaServer/Dockerfile
+
