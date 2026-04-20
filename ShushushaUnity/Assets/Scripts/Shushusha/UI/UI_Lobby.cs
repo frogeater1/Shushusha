@@ -125,5 +125,31 @@ namespace UI
             member.m_准备.visible = false;
             member.m_id_in_room.text = msgData.Player.IdInRoom.ToString();
         }
+
+        public void OnPlayerLeft(PlayerLeft msgData)
+        {
+            var memberIndex = FindMemberIndex(msgData.Player.IdInRoom);
+            if (memberIndex < 0)
+            {
+                Debug.LogWarning($"玩家离开，但未找到大厅头像: {msgData.Player.IdInRoom}");
+                return;
+            }
+
+            m_memberlist.RemoveChildToPoolAt(memberIndex);
+        }
+
+        private int FindMemberIndex(int idInRoom)
+        {
+            for (var i = 0; i < m_memberlist.numChildren; i++)
+            {
+                var member = (UI_shark_avatar_lobby)m_memberlist.GetChildAt(i);
+                if (int.TryParse(member.m_id_in_room.text, out var memberIdInRoom) && memberIdInRoom == idInRoom)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
     }
 }

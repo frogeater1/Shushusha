@@ -99,6 +99,7 @@ namespace ShushushaServer
         game_start_c2s = 1008,
         JoinRoom = 2000, //这个是其他人加入房间时服务端主动发的
         GameStart = 2001,
+        PlayerLeft = 2002,
     }
 
     public class create_room_s2c
@@ -156,6 +157,12 @@ namespace ShushushaServer
     public class GameStart
     {
         public Player Mouse { get; set; }
+    }
+
+
+    public class PlayerLeft
+    {
+        public Player Player { get; set; } = null!;
     }
 
 

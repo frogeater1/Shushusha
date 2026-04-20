@@ -50,6 +50,11 @@ public class Game : MonoSingletonBase<Game>
         uilobby.OnJoinRoom(msgData);
     }
 
+    public void PlayerLeft(PlayerLeft msgData)
+    {
+        uilobby.OnPlayerLeft(msgData);
+    }
+
     public void OnCreateRoomSuccess(create_room_s2c msgData)
     {
         me.IdInRoom = 0;

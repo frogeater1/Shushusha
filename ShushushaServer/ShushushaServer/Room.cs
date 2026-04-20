@@ -41,6 +41,50 @@ public class Room
         return false;
     }
 
+    public bool TryRemoveClient(TcpClient client, out Player leftPlayer)
+    {
+        for (int i = 0; i < clients.Length; i++)
+        {
+            if (!ReferenceEquals(clients[i], client))
+            {
+                continue;
+            }
+
+            leftPlayer = players[i]!;
+            clients[i] = null;
+            players[i] = null;
+            return true;
+        }
+
+        leftPlayer = null!;
+        return false;
+    }
+
+    public bool IsEmpty()
+    {
+        return clients.All(x => x == null);
+    }
+
+    public void Broadcast(JsonPacket packet)
+    {
+        for (int i = 0; i < clients.Length; i++)
+        {
+            if (clients[i] == null || players[i] == null)
+            {
+                continue;
+            }
+
+            try
+            {
+                Dispacher.Send(clients[i]!.GetStream(), packet);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Broadcast failed for room={RoomId}, idx={i}: {e.Message}");
+            }
+        }
+    }
+
     public void GameStart()
     {
         // Console.WriteLine("GameStart!");

@@ -43,6 +43,7 @@ public static partial class Dispacher
         }
         finally
         {
+            RoomManager.RemoveClient(client);
             client.Close();
         }
     }

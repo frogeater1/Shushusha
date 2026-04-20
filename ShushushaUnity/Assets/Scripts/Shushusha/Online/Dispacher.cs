@@ -52,6 +52,9 @@ namespace ShushushaServer
                     case MsgId.GameStart:
                         Game.Instance.GameStart(msg.Data.Deserialize<GameStart>());
                         break;
+                    case MsgId.PlayerLeft:
+                        Game.Instance.PlayerLeft(msg.Data.Deserialize<PlayerLeft>());
+                        break;
                     // case KeepAlive:
                     //     SendMsg(new KeepAlive
                     //     {

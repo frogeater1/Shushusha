@@ -1,1 +1,1 @@
-﻿ShushushaServer.Server server = new ShushushaServer.Server("127.0.0.1", 13000);
+﻿ShushushaServer.Server server = new ShushushaServer.Server("0.0.0.0", 13000);

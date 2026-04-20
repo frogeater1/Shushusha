@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 
 namespace ShushushaServer;
 
@@ -11,6 +12,7 @@ public class Server
     private IPAddress localAddr;
     private TcpListener server;
     private int maxClient = 1024;
+    private CancellationTokenSource cts = new CancellationTokenSource();
 
     public Server(string ip, int port)
     {
@@ -21,15 +23,42 @@ public class Server
             server = new TcpListener(localAddr, this.port);
             server.Start(maxClient);
 
+            // 处理Ctrl+C
+            Console.CancelKeyPress += (sender, e) =>
+            {
+                e.Cancel = true;
+                cts.Cancel();
+                server.Stop();
+            };
+
             //接收终端输入
             Task.Run(ConsoleCommand);
 
             //循环接收连接请求并开启接收回复线程，没有请求时会阻塞
-            while (true)
+            while (!cts.Token.IsCancellationRequested)
             {
-                TcpClient client = server.AcceptTcpClient();
-                Task.Run(() => Dispacher.ReceiveRoomMsg(client));
-                Console.WriteLine("Connected!");
+                try
+                {
+                    TcpClient client = server.AcceptTcpClient();
+                    Task.Run(() => 
+                    {
+                        using (client)  // 确保TcpClient被正确释放
+                        {
+                            Dispacher.ReceiveRoomMsg(client);
+                        }
+                    });
+                    Console.WriteLine("Connected!");
+                }
+                catch (SocketException) when (cts.Token.IsCancellationRequested)
+                {
+                    // 取消时退出
+                    break;
+                }
+                catch (SocketException)
+                {
+                    // 其他socket错误
+                    Console.WriteLine("Socket error occurred.");
+                }
             }
         }
         catch (Exception e)
@@ -41,7 +70,7 @@ public class Server
 
     private void ConsoleCommand()
     {
-        while (true)
+        while (!cts.Token.IsCancellationRequested)
         {
             var input = Console.ReadLine();
             if (input == "check")

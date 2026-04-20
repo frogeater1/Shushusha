@@ -4,4 +4,7 @@
     build:
       context: .
       dockerfile: ShushushaServer/Dockerfile
+    ports:
+      - "13000:13000"
+    restart: unless-stopped
 
