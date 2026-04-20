@@ -41,7 +41,7 @@ public class Game : MonoSingletonBase<Game>
 
     private void Update()
     {
-        Dispacher.Distribute();
+        Dispatcher.Distribute();
     }
 
 

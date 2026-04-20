@@ -76,7 +76,7 @@ public class Room
 
             try
             {
-                Dispacher.Send(clients[i]!.GetStream(), packet);
+                Dispatcher.Send(clients[i]!.GetStream(), packet);
             }
             catch (Exception e)
             {
@@ -107,12 +107,12 @@ public class Room
         //     };
         //     if (clients[0] is { Connected: true })
         //     {
-        //         Dispacher.Send(clients[0].GetStream(), logic_update);
+        //         Dispatcher.Send(clients[0].GetStream(), logic_update);
         //     }
         //
         //     if (clients[1] is { Connected: true })
         //     {
-        //         Dispacher.Send(clients[1].GetStream(), logic_update);
+        //         Dispatcher.Send(clients[1].GetStream(), logic_update);
         //     }
         // };
         // t.Enabled = true;
@@ -123,7 +123,7 @@ public class Room
         // var stream = clients[idx].GetStream();
         // while (true)
         // {
-        //     var msg = Dispacher.Receive(stream);
+        //     var msg = Dispatcher.Receive(stream);
         //     Console.WriteLine(msg);
         //     if (msg is RpcMsg rpcMsg)
         //     {

@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace ShushushaServer;
 
-public static partial class Dispacher
+public static partial class Dispatcher
 {
     public static void ReceiveRoomMsg(TcpClient client)
     {
@@ -25,10 +25,10 @@ public static partial class Dispacher
                         RoomManager.JoinRoom(packet.Data.Deserialize<join_room_c2s>()!, client);
                         break;
                     case MsgId.ready_c2s:
-                        RoomManager.Ready(packet.Data.Deserialize<ready_c2s>()!);
+                        RoomManager.Ready(client);
                         break;
                     case MsgId.game_start_c2s:
-                        RoomManager.GameStart(packet.Data.Deserialize<game_start_c2s>()!);
+                        RoomManager.GameStart(client);
                         break;
                 }
             }

@@ -44,7 +44,7 @@ public class Server
                     {
                         using (client)  // 确保TcpClient被正确释放
                         {
-                            Dispacher.ReceiveRoomMsg(client);
+                            Dispatcher.ReceiveRoomMsg(client);
                         }
                     });
                     Console.WriteLine("Connected!");

@@ -22,7 +22,7 @@ namespace ShushushaServer
         {
             Network.Connect();
 
-            Dispacher.SendMsg(Dispacher.CreatePacket(MsgId.create_room_c2s, new create_room_c2s
+            Dispatcher.SendMsg(Dispatcher.CreatePacket(MsgId.create_room_c2s, new create_room_c2s
             {
                 Player = new Player
                 {
@@ -37,7 +37,7 @@ namespace ShushushaServer
         {
             Network.Connect();
 
-            Dispacher.SendMsg(Dispacher.CreatePacket(MsgId.join_room_c2s, new join_room_c2s
+            Dispatcher.SendMsg(Dispatcher.CreatePacket(MsgId.join_room_c2s, new join_room_c2s
             {
                 RoomId = roomId,
                 Player = new Player
@@ -53,7 +53,7 @@ namespace ShushushaServer
 
         public static async UniTask<ready_s2c> Ready()
         {
-            Dispacher.SendMsg(Dispacher.CreatePacket(MsgId.ready_c2s, new ready_c2s
+            Dispatcher.SendMsg(Dispatcher.CreatePacket(MsgId.ready_c2s, new ready_c2s
             {
                 RoomId = int.Parse(Game.Instance.uilobby.m_房间号.text),
                 IdInRoom = Game.Instance.me.IdInRoom
@@ -65,7 +65,7 @@ namespace ShushushaServer
 
         public static async UniTask<game_start_s2c> GameStart()
         {
-            Dispacher.SendMsg(Dispacher.CreatePacket(MsgId.game_start_c2s, new game_start_c2s
+            Dispatcher.SendMsg(Dispatcher.CreatePacket(MsgId.game_start_c2s, new game_start_c2s
             {
                 RoomId = int.Parse(Game.Instance.uilobby.m_房间号.text),
             }));
@@ -96,7 +96,7 @@ namespace ShushushaServer
 
         // public static async UniTaskVoid ExitRoom(string roomName)
         // {
-        //     Dispacher.SendMsg(new exit_room_c2s
+        //     Dispatcher.SendMsg(new exit_room_c2s
         //     {
         //         Name = roomName
         //     });

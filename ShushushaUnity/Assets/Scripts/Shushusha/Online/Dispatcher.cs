@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace ShushushaServer
 {
-    public static partial class Dispacher
+    public static partial class Dispatcher
     {
         private static ConcurrentQueue<JsonPacket> waitingSendMsgs = new();
         private static ConcurrentQueue<JsonPacket> waitingDistributeMsgs = new();

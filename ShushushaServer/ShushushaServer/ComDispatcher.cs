@@ -8,7 +8,7 @@ using System.Text.Json.Serialization;
 namespace ShushushaServer
 {
 // 这个 partial 放 server 和 client 共用的部分
-    public static partial class Dispacher
+    public static partial class Dispatcher
     {
         private static readonly JsonSerializerOptions JsonOptions = new()
         {

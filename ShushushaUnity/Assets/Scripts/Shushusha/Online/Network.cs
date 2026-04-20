@@ -46,10 +46,10 @@ namespace ShushushaServer
                             }
 
                             //循环把待发送队列里的消息发出去
-                            while (Dispacher.GetWaitingSendMsg() is { } msg)
+                            while (Dispatcher.GetWaitingSendMsg() is { } msg)
                             {
                                 Debug.Log(msg.MsgId.ToString() + msg.Data);
-                                Dispacher.Send(client.GetStream(), msg);
+                                Dispatcher.Send(client.GetStream(), msg);
                             }
                         }
                     }, cancellationToken:
@@ -59,7 +59,7 @@ namespace ShushushaServer
                 UniTask.RunOnThreadPool(() =>
                     {
                         var stream = client.GetStream();
-                        Dispacher.ReceiveMsg(stream);
+                        Dispatcher.ReceiveMsg(stream);
                     },
                     cancellationToken: cancellationTokenSource.Token).Forget();
             }
@@ -93,7 +93,7 @@ namespace ShushushaServer
         //         }
         //
         //         var msg = new heart_beat_c2s { ResCode = 1 };
-        //         Dispacher.SendMsg(msg);
+        //         Dispatcher.SendMsg(msg);
         //     };
         //     t.Enabled = true;
         // }
