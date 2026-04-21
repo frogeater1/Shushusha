@@ -16,6 +16,7 @@ namespace ShushushaServer
             { MsgId.join_room_s2c, new UniTaskCompletionSource<JsonPacket>() },
             { MsgId.ready_s2c, new UniTaskCompletionSource<JsonPacket>() },
             { MsgId.game_start_s2c, new UniTaskCompletionSource<JsonPacket>() },
+            { MsgId.hide_indicator_s2c, new UniTaskCompletionSource<JsonPacket>() },
         };
 
         public static async UniTask<create_room_s2c> CreateRoom()
@@ -30,7 +31,7 @@ namespace ShushushaServer
                 }
             }));
             var source = tasks[MsgId.create_room_s2c];
-            return (await source.Task).Data.Deserialize<create_room_s2c>();
+            return Dispatcher.GetPacketData<create_room_s2c>(await source.Task);
         }
 
         public static async UniTask<join_room_s2c> JoinRoom(int roomId)
@@ -46,8 +47,7 @@ namespace ShushushaServer
                 }
             }));
             var source = tasks[MsgId.join_room_s2c];
-            var data = (await source.Task).Data;
-            return data.Deserialize<join_room_s2c>();
+            return Dispatcher.GetPacketData<join_room_s2c>(await source.Task);
         }
 
 
@@ -59,8 +59,7 @@ namespace ShushushaServer
                 IdInRoom = Game.Instance.me.IdInRoom
             }));
             var source = tasks[MsgId.ready_s2c];
-            var data = (await source.Task).Data;
-            return data.Deserialize<ready_s2c>();
+            return Dispatcher.GetPacketData<ready_s2c>(await source.Task);
         }
 
         public static async UniTask<game_start_s2c> GameStart()
@@ -70,8 +69,21 @@ namespace ShushushaServer
                 RoomId = int.Parse(Game.Instance.uilobby.m_房间号.text),
             }));
             var source = tasks[MsgId.game_start_s2c];
-            var data = (await source.Task).Data;
-            return data.Deserialize<game_start_s2c>();
+            return Dispatcher.GetPacketData<game_start_s2c>(await source.Task);
+        }
+
+        public static async UniTask<hide_indicator_s2c> HideIndicator(Vector3 position)
+        {
+            Dispatcher.SendMsg(Dispatcher.CreatePacket(MsgId.hide_indicator_c2s, new hide_indicator_c2s
+            {
+                RoomId = int.Parse(Game.Instance.uilobby.m_房间号.text),
+                IdInRoom = Game.Instance.me.IdInRoom,
+                X = position.x,
+                Y = position.y,
+                Z = position.z
+            }));
+            var source = tasks[MsgId.hide_indicator_s2c];
+            return Dispatcher.GetPacketData<hide_indicator_s2c>(await source.Task);
         }
 
         public static void Response(JsonPacket msg)

@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Text.Json;
+using System.Threading;
 using UnityEditor;
 using UnityEngine;
 
@@ -11,6 +12,7 @@ namespace ShushushaServer
     {
         private static ConcurrentQueue<JsonPacket> waitingSendMsgs = new();
         private static ConcurrentQueue<JsonPacket> waitingDistributeMsgs = new();
+        private static readonly SemaphoreSlim waitingSendMsgSignal = new(0);
 
         public static void Distribute()
         {
@@ -43,17 +45,27 @@ namespace ShushushaServer
                     //     Game.Instance.logicFrame++;
                     //     EventManager.CallLogicUpdate();
                     //     break;
-                    case MsgId.create_room_s2c or MsgId.join_room_s2c or MsgId.ready_s2c or MsgId.game_start_s2c:
+                    case MsgId.create_room_s2c or MsgId.join_room_s2c or MsgId.ready_s2c or MsgId.game_start_s2c
+                        or MsgId.hide_indicator_s2c:
                         Request.Response(msg);
                         break;
                     case MsgId.JoinRoom:
-                        Game.Instance.JoinRoom(msg.Data.Deserialize<JoinRoom>());
+                        Game.Instance.JoinRoom(GetPacketData<JoinRoom>(msg));
                         break;
                     case MsgId.GameStart:
-                        Game.Instance.GameStart(msg.Data.Deserialize<GameStart>());
+                        Game.Instance.GameStart(GetPacketData<GameStart>(msg));
                         break;
                     case MsgId.PlayerLeft:
-                        Game.Instance.PlayerLeft(msg.Data.Deserialize<PlayerLeft>());
+                        Game.Instance.PlayerLeft(GetPacketData<PlayerLeft>(msg));
+                        break;
+                    case MsgId.Ready:
+                        Game.Instance.Ready(GetPacketData<Ready>(msg));
+                        break;
+                    case MsgId.ChangeStage:
+                        Game.Instance.ChangeStage(GetPacketData<ChangeStage>(msg));
+                        break;
+                    case MsgId.HideIndicator:
+                        Game.Instance.HideIndicator(GetPacketData<HideIndicator>(msg));
                         break;
                     // case KeepAlive:
                     //     SendMsg(new KeepAlive
@@ -69,12 +81,12 @@ namespace ShushushaServer
         }
 
 
-        public static JsonPacket GetWaitingSendMsg()
+        public static JsonPacket WaitForSendMsg(CancellationToken cancellationToken)
         {
+            waitingSendMsgSignal.Wait(cancellationToken);
             waitingSendMsgs.TryDequeue(out var result);
             return result;
         }
-
 
         public static JsonPacket GetWaitingDistributeMsg()
         {
@@ -95,6 +107,7 @@ namespace ShushushaServer
         public static void SendMsg(JsonPacket msg)
         {
             waitingSendMsgs.Enqueue(msg);
+            waitingSendMsgSignal.Release();
         }
 
         public static void ReceiveMsg(NetworkStream stream)

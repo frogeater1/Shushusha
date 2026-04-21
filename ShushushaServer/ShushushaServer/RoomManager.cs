@@ -8,11 +8,21 @@ public class RoomManager
 {
     public static ConcurrentDictionary<int, Room> rooms = new();
     private static readonly ConcurrentDictionary<TcpClient, PlayerSession> playerSessions = new();
+    private static int nextRoomId;
 
     public static void CreateRoom(create_room_c2s msgData, TcpClient client)
     {
-        NetworkStream stream = client.GetStream();
-        var room = new Room(msgData, client, rooms.Count + 1);
+        if (TryGetSessionRoom(client, out PlayerSession currentSession, out _))
+        {
+            Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.create_room_s2c, new create_room_s2c
+            {
+                ResCode = ResCode.AlreadyInRoom,
+                RoomId = currentSession.RoomId
+            }));
+            return;
+        }
+
+        var room = new Room(msgData, client, Interlocked.Increment(ref nextRoomId));
         try
         {
             if (!rooms.TryAdd(room.RoomId, room))
@@ -22,7 +32,7 @@ public class RoomManager
 
             RegisterClient(client, room.RoomId, 0);
             Console.WriteLine("CreateRoom Success.");
-            Dispatcher.Send(stream, Dispatcher.CreatePacket(MsgId.create_room_s2c, new create_room_s2c { ResCode = ResCode.Success, RoomId = room.RoomId }));
+            Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.create_room_s2c, new create_room_s2c { ResCode = ResCode.Success, RoomId = room.RoomId }));
         }
         catch (Exception e)
         {
@@ -33,49 +43,53 @@ public class RoomManager
 
     public static void JoinRoom(join_room_c2s msgData, TcpClient client)
     {
-        NetworkStream stream = client.GetStream();
-        if (!rooms.TryGetValue(msgData.RoomId, out Room? room))
+        if (TryGetSessionRoom(client, out PlayerSession currentSession, out Room currentRoom))
         {
-            Dispatcher.Send(stream, Dispatcher.CreatePacket(MsgId.join_room_s2c, new join_room_s2c { ResCode = ResCode.CantFindRoom }));
-            return;
-        }
-
-        lock (room)
-        {
-            if (!room.TryJoin(msgData, client, out Player joinedPlayer))
+            if (currentSession.RoomId == msgData.RoomId)
             {
-                Dispatcher.Send(stream, Dispatcher.CreatePacket(MsgId.join_room_s2c, new join_room_s2c { ResCode = ResCode.RoomIsFull }));
+                SendJoinRoomSuccess(client, currentRoom);
+
                 return;
             }
 
-            try
+            Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.join_room_s2c, new join_room_s2c
             {
-                for (int i = 0; i < room.clients.Length; i++)
-                {
-                    if (room.clients[i] == null || room.players[i] == null || i == joinedPlayer.IdInRoom)
-                    {
-                        continue;
-                    }
+                ResCode = ResCode.AlreadyInRoom,
+                RoomId = currentSession.RoomId
+            }));
+            return;
+        }
 
-                    Dispatcher.Send(room.clients[i]!.GetStream(), Dispatcher.CreatePacket(MsgId.JoinRoom, new JoinRoom
-                    {
-                        Player = joinedPlayer
-                    }));
-                }
+        if (!rooms.TryGetValue(msgData.RoomId, out Room? room))
+        {
+            Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.join_room_s2c, new join_room_s2c { ResCode = ResCode.CantFindRoom }));
+            return;
+        }
 
-                RegisterClient(client, room.RoomId, joinedPlayer.IdInRoom);
-                Dispatcher.Send(stream, Dispatcher.CreatePacket(MsgId.join_room_s2c, new join_room_s2c
+        ResCode resCode = room.TryJoin(msgData, client, out Player joinedPlayer, out List<TcpClient> notifyClients);
+        if (resCode != ResCode.Success)
+        {
+            Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.join_room_s2c, new join_room_s2c { ResCode = resCode }));
+            return;
+        }
+
+        try
+        {
+            foreach (TcpClient notifyClient in notifyClients)
+            {
+                Dispatcher.Send(notifyClient, Dispatcher.CreatePacket(MsgId.JoinRoom, new JoinRoom
                 {
-                    ResCode = ResCode.Success,
-                    RoomId = room.RoomId,
-                    Players = room.players.Where(x => x != null).ToList()!,
+                    Player = joinedPlayer
                 }));
             }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.StackTrace);
-                throw;
-            }
+
+            RegisterClient(client, room.RoomId, joinedPlayer.IdInRoom);
+            SendJoinRoomSuccess(client, room);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e.StackTrace);
+            throw;
         }
     }
 
@@ -87,16 +101,19 @@ public class RoomManager
             return;
         }
 
-        Player player;
-        lock (room)
+        ResCode resCode = room.Ready(session.IdInRoom, out Player player);
+        Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.ready_s2c, new ready_s2c
         {
-            player = room.players[session.IdInRoom]!;
-            player.Ready = true;
+            ResCode = resCode
+        }));
+
+        if (resCode != ResCode.Success)
+        {
+            return;
         }
 
-        var msg = Dispatcher.CreatePacket(MsgId.ready_s2c, new ready_s2c
+        var msg = Dispatcher.CreatePacket(MsgId.Ready, new Ready
         {
-            ResCode = ResCode.Success,
             Player = player
         });
 
@@ -112,27 +129,65 @@ public class RoomManager
             return;
         }
 
-        var activePlayers = room.players.OfType<Player>().ToList();
-        var mouse = activePlayers[Random.Shared.Next(activePlayers.Count)];
-        Dispatcher.Send(client.GetStream(), Dispatcher.CreatePacket(MsgId.game_start_s2c, new game_start_s2c
+        ResCode resCode = room.TryStartGame(session.IdInRoom, out GameStartResult gameStartResult);
+        if (resCode != ResCode.Success)
+        {
+            Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.game_start_s2c, new game_start_s2c
+            {
+                ResCode = resCode,
+            }));
+            return;
+        }
+
+        Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.game_start_s2c, new game_start_s2c
         {
             ResCode = ResCode.Success,
         }));
 
-        for (int i = 0; i < room.clients.Length; i++)
+        foreach (TcpClient targetClient in gameStartResult.TargetClients)
         {
-            if (room.clients[i] == null || room.players[i] == null)
-            {
-                continue;
-            }
-
             var gameStartMsg = Dispatcher.CreatePacket(MsgId.GameStart, new GameStart
             {
-                Mouse = mouse
+                Mouse = gameStartResult.Mouse,
+                SharkKing = gameStartResult.SharkKing
             });
 
             Console.WriteLine($"Send {JsonSerializer.Serialize(gameStartMsg)} ");
-            Dispatcher.Send(room.clients[i]!.GetStream(), gameStartMsg);
+            Dispatcher.Send(targetClient, gameStartMsg);
+        }
+
+        Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(2));
+            BroadcastStageChange(room, GameStage.Hide);
+        });
+    }
+
+    public static void HideIndicator(hide_indicator_c2s msgData, TcpClient client)
+    {
+        if (!TryGetSessionRoom(client, out PlayerSession session, out Room room))
+        {
+            Console.WriteLine("HideIndicator ignored because client has no room session.");
+            return;
+        }
+
+        Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.hide_indicator_s2c, new hide_indicator_s2c
+        {
+            ResCode = ResCode.Success
+        }));
+
+        var packet = Dispatcher.CreatePacket(MsgId.HideIndicator, new HideIndicator
+        {
+            IdInRoom = session.IdInRoom,
+            X = msgData.X,
+            Y = msgData.Y,
+            Z = msgData.Z
+        });
+
+        Console.WriteLine($"Broadcast {JsonSerializer.Serialize(packet)} ");
+        foreach (TcpClient sharkClient in room.GetSharkClients())
+        {
+            Dispatcher.Send(sharkClient, packet);
         }
     }
 
@@ -149,15 +204,9 @@ public class RoomManager
         }
 
         Player leftPlayer;
-        bool roomIsEmpty;
-        lock (room)
+        if (!room.TryRemoveClient(client, out leftPlayer, out bool roomIsEmpty))
         {
-            if (!room.TryRemoveClient(client, out leftPlayer))
-            {
-                return;
-            }
-
-            roomIsEmpty = room.IsEmpty();
+            return;
         }
 
         if (roomIsEmpty)
@@ -178,6 +227,32 @@ public class RoomManager
     private static void RegisterClient(TcpClient client, int roomId, int idInRoom)
     {
         playerSessions[client] = new PlayerSession(roomId, idInRoom);
+    }
+
+    private static void SendJoinRoomSuccess(TcpClient client, Room room)
+    {
+        Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.join_room_s2c, new join_room_s2c
+        {
+            ResCode = ResCode.Success,
+            RoomId = room.RoomId,
+            Players = room.GetPlayersSnapshot(),
+        }));
+    }
+
+    private static void BroadcastStageChange(Room room, GameStage stage)
+    {
+        StageChangeResult result = room.ChangeStage(stage);
+        var packet = Dispatcher.CreatePacket(MsgId.ChangeStage, new ChangeStage
+        {
+            Round = result.Round,
+            Stage = result.Stage
+        });
+
+        Console.WriteLine($"Broadcast {JsonSerializer.Serialize(packet)} ");
+        foreach (TcpClient targetClient in result.TargetClients)
+        {
+            Dispatcher.Send(targetClient, packet);
+        }
     }
 
     private static bool TryGetSessionRoom(TcpClient client, out PlayerSession session, out Room room)

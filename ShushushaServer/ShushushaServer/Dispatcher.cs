@@ -1,10 +1,31 @@
+using System.Collections.Concurrent;
 using System.Net.Sockets;
-using System.Text.Json;
 
 namespace ShushushaServer;
 
 public static partial class Dispatcher
 {
+    private static readonly ConcurrentDictionary<TcpClient, SemaphoreSlim> SendLocks = new();
+
+    public static void Send(TcpClient client, JsonPacket packet)
+    {
+        SemaphoreSlim sendLock = SendLocks.GetOrAdd(client, _ => new SemaphoreSlim(1, 1));
+        sendLock.Wait();
+        try
+        {
+            Send(client.GetStream(), packet);
+        }
+        finally
+        {
+            sendLock.Release();
+        }
+    }
+
+    public static void RemoveSendLock(TcpClient client)
+    {
+        SendLocks.TryRemove(client, out _);
+    }
+
     public static void ReceiveRoomMsg(TcpClient client)
     {
         using NetworkStream stream = client.GetStream();
@@ -19,16 +40,19 @@ public static partial class Dispatcher
                 switch (packet.MsgId)
                 {
                     case MsgId.create_room_c2s:
-                        RoomManager.CreateRoom(packet.Data.Deserialize<create_room_c2s>()!, client);
+                        RoomManager.CreateRoom(GetPacketData<create_room_c2s>(packet)!, client);
                         break;
                     case MsgId.join_room_c2s:
-                        RoomManager.JoinRoom(packet.Data.Deserialize<join_room_c2s>()!, client);
+                        RoomManager.JoinRoom(GetPacketData<join_room_c2s>(packet)!, client);
                         break;
                     case MsgId.ready_c2s:
                         RoomManager.Ready(client);
                         break;
                     case MsgId.game_start_c2s:
                         RoomManager.GameStart(client);
+                        break;
+                    case MsgId.hide_indicator_c2s:
+                        RoomManager.HideIndicator(GetPacketData<hide_indicator_c2s>(packet)!, client);
                         break;
                 }
             }
@@ -45,6 +69,7 @@ public static partial class Dispatcher
         {
             RoomManager.RemoveClient(client);
             client.Close();
+            RemoveSendLock(client);
         }
     }
 

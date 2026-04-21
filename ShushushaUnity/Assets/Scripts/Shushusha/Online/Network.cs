@@ -12,6 +12,7 @@ namespace ShushushaServer
         public static TcpClient client;
         private static string ip = "127.0.0.1";
         private static int port = 13000;
+        private static CancellationTokenSource cancellationTokenSource;
 
         public static void Connect()
         {
@@ -20,12 +21,15 @@ namespace ShushushaServer
                 return;
             }
 
-            var cancellationTokenSource = new CancellationTokenSource();
+            cancellationTokenSource?.Cancel();
+            cancellationTokenSource?.Dispose();
+            cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             //这个事件在意外退出，ios，和uwp上不会触发,详见unity文档
             Application.quitting += () =>
             {
-                client.Close();
+                client?.Close();
                 client = null;
                 cancellationTokenSource.Cancel();
             };
@@ -34,34 +38,45 @@ namespace ShushushaServer
             try
             {
                 client = new TcpClient(ip, port);
+                var connectedClient = client;
+                var stream = connectedClient.GetStream();
 
                 UniTask.RunOnThreadPool(() =>
                     {
-                        while (true)
+                        try
                         {
-                            if (client is not { Connected: true })
+                            while (true)
                             {
-                                Debug.Log("连接断开");
-                                return;
-                            }
+                                cancellationToken.ThrowIfCancellationRequested();
 
-                            //循环把待发送队列里的消息发出去
-                            while (Dispatcher.GetWaitingSendMsg() is { } msg)
-                            {
+                                if (!connectedClient.Connected)
+                                {
+                                    Debug.Log("连接断开");
+                                    return;
+                                }
+
+                                var msg = Dispatcher.WaitForSendMsg(cancellationToken);
+                                if (msg == null)
+                                {
+                                    continue;
+                                }
+
                                 Debug.Log(msg.MsgId.ToString() + msg.Data);
-                                Dispatcher.Send(client.GetStream(), msg);
+                                Dispatcher.Send(stream, msg);
                             }
                         }
+                        catch (OperationCanceledException)
+                        {
+                        }
                     }, cancellationToken:
-                    cancellationTokenSource.Token).Forget();
+                    cancellationToken).Forget();
 
                 //接收消息并存到待分发队列
                 UniTask.RunOnThreadPool(() =>
                     {
-                        var stream = client.GetStream();
                         Dispatcher.ReceiveMsg(stream);
                     },
-                    cancellationToken: cancellationTokenSource.Token).Forget();
+                    cancellationToken: cancellationToken).Forget();
             }
             catch (Exception e)
             {
@@ -77,6 +92,7 @@ namespace ShushushaServer
             client.Close();
             Debug.Log(client.Connected);
             client = null;
+            cancellationTokenSource?.Cancel();
         }
 
         // private static void HeartBeatTimer()

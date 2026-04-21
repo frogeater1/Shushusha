@@ -6,8 +6,14 @@ namespace ShushushaServer;
 public class Room
 {
     public const int MaxPlayers = 12;
+    private const int MinPlayersToStart = 2;
 
     public int RoomId;
+    public RoomState State = RoomState.Waiting;
+    public int CurrentRound;
+    public GameStage Stage = GameStage.None;
+    public Player? Mouse;
+    public Player? SharkKing;
     public TcpClient?[] clients = new TcpClient[MaxPlayers];
     public Player?[] players = new Player[MaxPlayers];
 
@@ -16,32 +22,169 @@ public class Room
     public Room(create_room_c2s msg, TcpClient client1, int roomId)
     {
         RoomId = roomId;
-        msg.Player.IdInRoom = 0;
         clients[0] = client1;
-        players[0] = msg.Player;
+        players[0] = CreateRoomPlayer(msg.Player.Uid, 0);
     }
 
-    public bool TryJoin(join_room_c2s msg, TcpClient client, out Player joinedPlayer)
+    public ResCode TryJoin(join_room_c2s msg, TcpClient client, out Player joinedPlayer, out List<TcpClient> notifyClients)
     {
-        for (int i = 0; i < clients.Length; i++)
+        lock (this)
         {
-            if (clients[i] != null)
+            notifyClients = new();
+            if (State != RoomState.Waiting)
             {
-                continue;
+                joinedPlayer = null!;
+                return ResCode.GameAlreadyStarted;
             }
 
-            msg.Player.IdInRoom = i;
-            clients[i] = client;
-            players[i] = msg.Player;
-            joinedPlayer = msg.Player;
-            return true;
-        }
+            for (int i = 0; i < clients.Length; i++)
+            {
+                if (clients[i] != null)
+                {
+                    continue;
+                }
 
-        joinedPlayer = null!;
-        return false;
+                clients[i] = client;
+                joinedPlayer = CreateRoomPlayer(msg.Player.Uid, i);
+                players[i] = joinedPlayer;
+                int joinedIdInRoom = joinedPlayer.IdInRoom;
+                notifyClients = clients
+                    .Where((x, idx) => x != null && idx != joinedIdInRoom)
+                    .Select(x => x!)
+                    .ToList();
+                return ResCode.Success;
+            }
+
+            joinedPlayer = null!;
+            return ResCode.RoomIsFull;
+        }
     }
 
-    public bool TryRemoveClient(TcpClient client, out Player leftPlayer)
+    public ResCode Ready(int idInRoom, out Player readyPlayer)
+    {
+        lock (this)
+        {
+            readyPlayer = players[idInRoom]!;
+            if (State != RoomState.Waiting)
+            {
+                return ResCode.InvalidRoomState;
+            }
+
+            readyPlayer.Ready = true;
+            return ResCode.Success;
+        }
+    }
+
+    public ResCode TryStartGame(int idInRoom, out GameStartResult result)
+    {
+        lock (this)
+        {
+            result = new GameStartResult();
+
+            if (idInRoom != 0)
+            {
+                return ResCode.NotRoomOwner;
+            }
+
+            if (State != RoomState.Waiting)
+            {
+                return ResCode.GameAlreadyStarted;
+            }
+
+            var activePlayers = players.OfType<Player>().ToList();
+            if (activePlayers.Count < MinPlayersToStart)
+            {
+                return ResCode.NotEnoughPlayers;
+            }
+
+            if (activePlayers.Any(player => !player.Ready))
+            {
+                return ResCode.NotAllPlayersReady;
+            }
+
+            int mouseIndex = Random.Shared.Next(activePlayers.Count);
+            int sharkKingIndex = Random.Shared.Next(activePlayers.Count - 1);
+            if (sharkKingIndex >= mouseIndex)
+            {
+                sharkKingIndex++;
+            }
+
+            result = new GameStartResult
+            {
+                Mouse = activePlayers[mouseIndex],
+                SharkKing = activePlayers[sharkKingIndex],
+                TargetClients = clients.Where(x => x != null).Select(x => x!).ToList()
+            };
+            Mouse = result.Mouse;
+            SharkKing = result.SharkKing;
+            State = RoomState.Playing;
+            CurrentRound = 0;
+            Stage = GameStage.None;
+            return ResCode.Success;
+        }
+    }
+
+    public StageChangeResult ChangeStage(GameStage stage)
+    {
+        lock (this)
+        {
+            if (stage == GameStage.Hide)
+            {
+                CurrentRound++;
+            }
+
+            Stage = stage;
+            return new StageChangeResult
+            {
+                Round = CurrentRound,
+                Stage = Stage,
+                TargetClients = clients.Where(x => x != null).Select(x => x!).ToList()
+            };
+        }
+    }
+
+    public List<TcpClient> GetSharkClients()
+    {
+        lock (this)
+        {
+            if (Mouse == null)
+            {
+                return new List<TcpClient>();
+            }
+
+            return clients
+                .Where((client, idx) => client != null
+                    && players[idx] != null
+                    && players[idx]!.IdInRoom != Mouse.IdInRoom)
+                .Select(client => client!)
+                .ToList();
+        }
+    }
+
+    public List<Player> GetPlayersSnapshot()
+    {
+        lock (this)
+        {
+            return players.OfType<Player>().ToList();
+        }
+    }
+
+    public bool TryRemoveClient(TcpClient client, out Player leftPlayer, out bool roomIsEmpty)
+    {
+        lock (this)
+        {
+            if (!TryRemoveClient(client, out leftPlayer))
+            {
+                roomIsEmpty = false;
+                return false;
+            }
+
+            roomIsEmpty = IsEmpty();
+            return true;
+        }
+    }
+
+    private bool TryRemoveClient(TcpClient client, out Player leftPlayer)
     {
         for (int i = 0; i < clients.Length; i++)
         {
@@ -76,7 +219,7 @@ public class Room
 
             try
             {
-                Dispatcher.Send(clients[i]!.GetStream(), packet);
+                Dispatcher.Send(clients[i]!, packet);
             }
             catch (Exception e)
             {
@@ -85,54 +228,34 @@ public class Room
         }
     }
 
-    public void GameStart()
+    private static Player CreateRoomPlayer(int uid, int idInRoom)
     {
-        // Console.WriteLine("GameStart!");
-        // Task.Run(() => ReceiveMsg(0));
-        // Task.Run(() => ReceiveMsg(1));
-        // var t = new System.Timers.Timer();
-        // t.Interval = 1000f / 60;
-        // t.Elapsed += (sender, args) =>
-        // {
-        //     RpcMsg[] rpc_msgs;
-        //     lock (waitingMsgs)
-        //     {
-        //         rpc_msgs = waitingMsgs.ToArray();
-        //         waitingMsgs.Clear();
-        //     }
-        //
-        //     var logic_update = new LogicUpdate
-        //     {
-        //         Rpcs = { rpc_msgs }
-        //     };
-        //     if (clients[0] is { Connected: true })
-        //     {
-        //         Dispatcher.Send(clients[0].GetStream(), logic_update);
-        //     }
-        //
-        //     if (clients[1] is { Connected: true })
-        //     {
-        //         Dispatcher.Send(clients[1].GetStream(), logic_update);
-        //     }
-        // };
-        // t.Enabled = true;
+        return new Player
+        {
+            Uid = uid,
+            IdInRoom = idInRoom,
+            Ready = false
+        };
     }
 
-    public void ReceiveMsg(int idx)
-    {
-        // var stream = clients[idx].GetStream();
-        // while (true)
-        // {
-        //     var msg = Dispatcher.Receive(stream);
-        //     Console.WriteLine(msg);
-        //     if (msg is RpcMsg rpcMsg)
-        //     {
-        //         waitingMsgs.Enqueue(rpcMsg);
-        //     }
-        //     else
-        //     {
-        //         Console.WriteLine("收到错误的消息: " + msg);
-        //     }
-        // }
-    }
+}
+
+public enum RoomState
+{
+    Waiting,
+    Playing
+}
+
+public class StageChangeResult
+{
+    public int Round { get; set; }
+    public GameStage Stage { get; set; }
+    public List<TcpClient> TargetClients { get; set; } = new();
+}
+
+public class GameStartResult
+{
+    public Player Mouse { get; set; } = null!;
+    public Player SharkKing { get; set; } = null!;
+    public List<TcpClient> TargetClients { get; set; } = new();
 }

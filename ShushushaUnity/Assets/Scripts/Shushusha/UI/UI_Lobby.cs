@@ -10,6 +10,9 @@ namespace UI
 {
     public partial class UI_Lobby
     {
+        private Window _tipWindow;
+        private UI_Tip _tipView;
+
         partial void Init()
         {
             Game.Instance.uilobby = this;
@@ -54,6 +57,10 @@ namespace UI
                     OnJoinRoomFail("房间已满");
                     Network.Disconnect();
                     break;
+                case ResCode.AlreadyInRoom:
+                    OnJoinRoomFail("已经在房间中");
+                    Network.Disconnect();
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
@@ -62,8 +69,10 @@ namespace UI
         private async UniTaskVoid OnReady()
         {
             var msgData = await Request.Ready();
-            var member = (UI_shark_avatar_lobby)m_memberlist.GetChildAt(msgData.Player.IdInRoom);
-            member.m_准备.visible = true;
+            if (msgData.ResCode != ResCode.Success)
+            {
+                OnReadyFail("准备失败");
+            }
         }
 
         private async UniTaskVoid OnGameStart()
@@ -91,7 +100,8 @@ namespace UI
 
         public void OnCreateRoomFail(string tip)
         {
-            m_waiting.text = "创建房间失败";
+            m_waiting.text = " ";
+            ShowTip(tip);
             Debug.LogError(tip);
         }
 
@@ -114,8 +124,45 @@ namespace UI
 
         public void OnJoinRoomFail(string tip)
         {
-            m_waiting.text = tip;
+            m_waiting.text = " ";
+            ShowTip(tip);
             Debug.LogError(tip);
+        }
+
+        private void OnReadyFail(string tip)
+        {
+            ShowTip(tip);
+            Debug.LogError(tip);
+        }
+
+        private void ShowTip(string tip)
+        {
+            if (_tipWindow == null)
+            {
+                _tipView = UI_Tip.CreateInstance();
+                _tipView.m_close.onClick.Set(CloseTipWindow);
+                _tipView.m_confirm.onClick.Set(CloseTipWindow);
+
+                _tipWindow = new Window
+                {
+                    modal = true,
+                    contentPane = _tipView
+                };
+            }
+
+            _tipView.m_content.text = tip;
+            _tipWindow.CenterOn(GRoot.inst, true);
+            _tipWindow.Show();
+        }
+
+        private void CloseTipWindow()
+        {
+            if (_tipWindow == null)
+            {
+                return;
+            }
+
+            _tipWindow.Hide();
         }
 
         public void OnJoinRoom(JoinRoom msgData)
@@ -136,6 +183,24 @@ namespace UI
             }
 
             m_memberlist.RemoveChildToPoolAt(memberIndex);
+        }
+
+        public void OnReady(Ready msgData)
+        {
+            SetMemberReady(msgData.Player.IdInRoom);
+        }
+
+        private void SetMemberReady(int idInRoom)
+        {
+            var memberIndex = FindMemberIndex(idInRoom);
+            if (memberIndex < 0)
+            {
+                Debug.LogWarning($"玩家准备，但未找到大厅头像: {idInRoom}");
+                return;
+            }
+
+            var member = (UI_shark_avatar_lobby)m_memberlist.GetChildAt(memberIndex);
+            member.m_准备.visible = true;
         }
 
         private int FindMemberIndex(int idInRoom)
