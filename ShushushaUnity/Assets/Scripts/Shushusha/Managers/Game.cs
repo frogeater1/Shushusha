@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Text.Json;
 using Cysharp.Threading.Tasks;
 using ShushushaServer;
@@ -21,6 +23,9 @@ public class Game : MonoSingletonBase<Game>
 
     public GameObject 指示物Prefab;
     private GameObject indicatorInstance;
+    private CancellationTokenSource hideStageCountdownCts;
+
+    private const int HideStageCountdownSeconds = 30;
 
     protected override void Awake()
     {
@@ -122,10 +127,13 @@ public class Game : MonoSingletonBase<Game>
         CurrentStage = msgData.Stage;
         uiMain.m_round.SetVar("count", msgData.Round.ToString()).FlushVars();
         uiMain.m_stage.text = $"{msgData.Stage}阶段";
+        CancelHideStageCountdown();
 
         switch (msgData.Stage)
         {
             case GameStage.Hide:
+                StartHideStageCountdown().Forget();
+
                 if (Identity is PlayerIdentity.Shark or PlayerIdentity.SharkKing)
                 {
                     uiMain.m_确定.enabled = true;
@@ -138,7 +146,48 @@ public class Game : MonoSingletonBase<Game>
                 }
 
                 break;
+            default:
+                uiMain.m_倒计时.text = string.Empty;
+                break;
         }
+    }
+
+    private async UniTaskVoid StartHideStageCountdown()
+    {
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
+        hideStageCountdownCts = cts;
+
+        try
+        {
+            for (var remaining = HideStageCountdownSeconds; remaining >= 0; remaining--)
+            {
+                uiMain.m_倒计时.text = remaining.ToString();
+
+                if (remaining == 0)
+                {
+                    break;
+                }
+
+                await UniTask.Delay(1000, cancellationToken: cts.Token);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            if (hideStageCountdownCts == cts)
+            {
+                hideStageCountdownCts = null;
+            }
+
+            cts.Dispose();
+        }
+    }
+
+    private void CancelHideStageCountdown()
+    {
+        hideStageCountdownCts?.Cancel();
     }
 
     private void TryPlaceHideStageIndicator()
