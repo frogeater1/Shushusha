@@ -18,14 +18,14 @@ namespace UI
             Game.Instance.uilobby = this;
             Debug.Log("lobby init");
             m_waiting.text = " ";
-            m_创建.onClick.Set(() => OnCreate().Forget());
-            m_加入.onClick.Set(() => { OnJoin().Forget(); });
-            m_准备.onClick.Set(() => { OnReady().Forget(); });
-            m_开始.onClick.Set(() => { OnGameStart().Forget(); });
+            m_创建.onClick.Set(() => Create().Forget());
+            m_加入.onClick.Set(() => { Join().Forget(); });
+            m_准备.onClick.Set(() => { Ready().Forget(); });
+            m_开始.onClick.Set(() => { GameStart().Forget(); });
         }
 
 
-        private async UniTaskVoid OnCreate()
+        private async UniTaskVoid Create()
         {
             m_waiting.visible = true;
             m_waiting.text = "创建房间中...";
@@ -41,7 +41,7 @@ namespace UI
             }
         }
 
-        private async UniTaskVoid OnJoin()
+        private async UniTaskVoid Join()
         {
             var msgData = await Request.JoinRoom(int.Parse(m_房间号输入.text));
             switch (msgData.ResCode)
@@ -66,7 +66,7 @@ namespace UI
             }
         }
 
-        private async UniTaskVoid OnReady()
+        private async UniTaskVoid Ready()
         {
             var msgData = await Request.Ready();
             if (msgData.ResCode != ResCode.Success)
@@ -75,7 +75,7 @@ namespace UI
             }
         }
 
-        private async UniTaskVoid OnGameStart()
+        private async UniTaskVoid GameStart()
         {
             var msgData = await Request.GameStart();
             if (msgData.ResCode == ResCode.Success)
