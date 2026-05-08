@@ -13,7 +13,7 @@ namespace UI
             public const int 房间 = 1;
         }
         public Controller m_Page;
-        public GButton m_准备;
+        public UI_二态Button m_准备;
         public GList m_memberlist;
         public GTextField m_房间号;
         public GButton m_开始;
@@ -33,7 +33,7 @@ namespace UI
             base.ConstructFromXML(xml);
 
             m_Page = GetControllerAt(0);
-            m_准备 = (GButton)GetChildAt(0);
+            m_准备 = (UI_二态Button)GetChildAt(0);
             m_memberlist = (GList)GetChildAt(1);
             m_房间号 = (GTextField)GetChildAt(3);
             m_开始 = (GButton)GetChildAt(4);

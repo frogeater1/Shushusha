@@ -68,11 +68,14 @@ namespace UI
 
         private async UniTaskVoid Ready()
         {
+            m_准备.enabled = false;
+
             var msgData = await Request.Ready();
             if (msgData.ResCode != ResCode.Success)
             {
                 OnReadyFail("准备失败");
             }
+            //成功的话这里不用管，所有人会收到相同的成功消息
         }
 
         private async UniTaskVoid GameStart()
@@ -131,6 +134,8 @@ namespace UI
 
         private void OnReadyFail(string tip)
         {
+            m_准备.enabled = true;
+            m_准备.m_状态.selectedIndex = 1;
             ShowTip(tip);
             Debug.LogError(tip);
         }
@@ -187,6 +192,12 @@ namespace UI
 
         public void OnReady(Ready msgData)
         {
+            if (msgData.Player.IdInRoom == Game.Instance.me.IdInRoom)
+            {
+                m_准备.enabled = true;
+                m_准备.m_状态.selectedIndex = 1;
+            }
+
             SetMemberReady(msgData.Player.IdInRoom);
         }
 
