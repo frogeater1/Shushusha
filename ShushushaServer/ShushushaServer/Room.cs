@@ -60,7 +60,7 @@ public class Room
         }
     }
 
-    public ResCode Ready(int idInRoom, out Player readyPlayer)
+    public ResCode Ready(int idInRoom, bool isReady, out Player readyPlayer)
     {
         lock (this)
         {
@@ -70,7 +70,7 @@ public class Room
                 return ResCode.InvalidRoomState;
             }
 
-            readyPlayer.Ready = true;
+            readyPlayer.Ready = !isReady;
             return ResCode.Success;
         }
     }
@@ -154,8 +154,8 @@ public class Room
 
             return clients
                 .Where((client, idx) => client != null
-                    && players[idx] != null
-                    && players[idx]!.IdInRoom != Mouse.IdInRoom)
+                                        && players[idx] != null
+                                        && players[idx]!.IdInRoom != Mouse.IdInRoom)
                 .Select(client => client!)
                 .ToList();
         }
@@ -237,7 +237,6 @@ public class Room
             Ready = false
         };
     }
-
 }
 
 public enum RoomState

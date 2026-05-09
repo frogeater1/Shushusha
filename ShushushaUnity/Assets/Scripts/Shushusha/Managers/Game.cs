@@ -66,17 +66,17 @@ public class Game : MonoSingletonBase<Game>
     }
 
 
-    public void JoinRoom(JoinRoom msgData)
+    public void OnJoinRoom(JoinRoom msgData)
     {
         uilobby.OnJoinRoom(msgData);
     }
 
-    public void PlayerLeft(PlayerLeft msgData)
+    public void OnPlayerLeft(PlayerLeft msgData)
     {
         uilobby.OnPlayerLeft(msgData);
     }
 
-    public void Ready(Ready msgData)
+    public void OnReady(Ready msgData)
     {
         uilobby.OnReady(msgData);
     }
@@ -90,11 +90,13 @@ public class Game : MonoSingletonBase<Game>
 
     public void OnJoinRoomSuccess(join_room_s2c msgData)
     {
-        me.IdInRoom = msgData.Players.First(x => x.Uid == me.Uid).IdInRoom;
+        var player = msgData.Players.First(x => x.Uid == me.Uid);
+        me.IdInRoom = player.IdInRoom;
+        me.Ready = false;
         uilobby.OnJoinRoomSuccess(msgData);
     }
 
-    public void GameStart(GameStart msgData)
+    public void OnGameStart(GameStart msgData)
     {
         if (msgData.Mouse.Uid == me.Uid)
         {
@@ -122,7 +124,7 @@ public class Game : MonoSingletonBase<Game>
         uiMain.m_确定.onClick.Set(() => SendIndicatorPosition().Forget());
     }
 
-    public void ChangeStage(ChangeStage msgData)
+    public void OnChangeStage(ChangeStage msgData)
     {
         CurrentStage = msgData.Stage;
         uiMain.m_round.SetVar("count", msgData.Round.ToString()).FlushVars();
@@ -251,7 +253,7 @@ public class Game : MonoSingletonBase<Game>
         uiMain.m_确定.enabled = false;
     }
 
-    public void HideIndicator(HideIndicator msgData)
+    public void OnHideIndicator(HideIndicator msgData)
     {
         if (msgData.IdInRoom == me.IdInRoom)
         {

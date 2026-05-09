@@ -55,8 +55,7 @@ namespace ShushushaServer
 
     public class ready_c2s
     {
-        public int RoomId { get; set; }
-        public int IdInRoom { get; set; }
+        public bool IsReady { get; set; }
     }
 
     public class ready_s2c

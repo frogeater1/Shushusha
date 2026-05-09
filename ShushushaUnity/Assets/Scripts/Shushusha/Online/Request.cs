@@ -55,8 +55,7 @@ namespace ShushushaServer
         {
             Dispatcher.SendMsg(Dispatcher.CreatePacket(MsgId.ready_c2s, new ready_c2s
             {
-                RoomId = int.Parse(Game.Instance.uilobby.m_房间号.text),
-                IdInRoom = Game.Instance.me.IdInRoom
+                IsReady = Game.Instance.me.Ready
             }));
             var source = tasks[MsgId.ready_s2c];
             return Dispatcher.GetPacketData<ready_s2c>(await source.Task);

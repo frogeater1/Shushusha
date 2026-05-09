@@ -46,7 +46,7 @@ public static partial class Dispatcher
                         RoomManager.JoinRoom(GetPacketData<join_room_c2s>(packet)!, client);
                         break;
                     case MsgId.ready_c2s:
-                        RoomManager.Ready(client);
+                        RoomManager.Ready(GetPacketData<ready_c2s>(packet), client);
                         break;
                     case MsgId.game_start_c2s:
                         RoomManager.GameStart(client);

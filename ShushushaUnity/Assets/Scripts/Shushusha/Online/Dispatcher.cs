@@ -50,22 +50,22 @@ namespace ShushushaServer
                         Request.Response(msg);
                         break;
                     case MsgId.JoinRoom:
-                        Game.Instance.JoinRoom(GetPacketData<JoinRoom>(msg));
+                        Game.Instance.OnJoinRoom(GetPacketData<JoinRoom>(msg));
                         break;
                     case MsgId.GameStart:
-                        Game.Instance.GameStart(GetPacketData<GameStart>(msg));
+                        Game.Instance.OnGameStart(GetPacketData<GameStart>(msg));
                         break;
                     case MsgId.PlayerLeft:
-                        Game.Instance.PlayerLeft(GetPacketData<PlayerLeft>(msg));
+                        Game.Instance.OnPlayerLeft(GetPacketData<PlayerLeft>(msg));
                         break;
                     case MsgId.Ready:
-                        Game.Instance.Ready(GetPacketData<Ready>(msg));
+                        Game.Instance.OnReady(GetPacketData<Ready>(msg));
                         break;
                     case MsgId.ChangeStage:
-                        Game.Instance.ChangeStage(GetPacketData<ChangeStage>(msg));
+                        Game.Instance.OnChangeStage(GetPacketData<ChangeStage>(msg));
                         break;
                     case MsgId.HideIndicator:
-                        Game.Instance.HideIndicator(GetPacketData<HideIndicator>(msg));
+                        Game.Instance.OnHideIndicator(GetPacketData<HideIndicator>(msg));
                         break;
                     // case KeepAlive:
                     //     SendMsg(new KeepAlive

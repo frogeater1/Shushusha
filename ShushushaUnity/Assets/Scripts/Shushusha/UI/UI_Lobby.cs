@@ -75,7 +75,7 @@ namespace UI
             {
                 OnReadyFail("准备失败");
             }
-            //成功的话这里不用管，所有人会收到相同的成功消息
+            //成功的话这里不用管，所有人会收到相同的成功消息，包含准备或取消准备后的状态
         }
 
         private async UniTaskVoid GameStart()
@@ -94,6 +94,8 @@ namespace UI
             m_Page.selectedIndex = Page.房间;
 
             m_开始.visible = true;
+            m_准备.enabled = true;
+            m_准备.m_状态.selectedIndex = 0;
 
             var member = (UI_shark_avatar_lobby)m_memberlist.AddItemFromPool();
             member.icon = UIPackage.GetItemURL("UI", "玩家头像");
@@ -115,12 +117,14 @@ namespace UI
             m_Page.selectedIndex = Page.房间;
 
             m_开始.visible = false;
+            m_准备.enabled = true;
+            m_准备.m_状态.selectedIndex = 0;
 
             foreach (var player in msgData.Players.OrderBy(x => x.IdInRoom))
             {
                 var member = (UI_shark_avatar_lobby)m_memberlist.AddItemFromPool();
                 member.icon = UIPackage.GetItemURL("UI", "玩家头像");
-                member.m_准备.visible = false;
+                member.m_准备.visible = player.Ready;
                 member.m_id_in_room.text = player.IdInRoom.ToString();
             }
         }
@@ -135,7 +139,7 @@ namespace UI
         private void OnReadyFail(string tip)
         {
             m_准备.enabled = true;
-            m_准备.m_状态.selectedIndex = 1;
+            m_准备.m_状态.selectedIndex = 0;
             ShowTip(tip);
             Debug.LogError(tip);
         }
@@ -174,7 +178,7 @@ namespace UI
         {
             var member = (UI_shark_avatar_lobby)m_memberlist.AddItemFromPool();
             member.icon = UIPackage.GetItemURL("UI", "玩家头像");
-            member.m_准备.visible = false;
+            member.m_准备.visible = msgData.Player.Ready;
             member.m_id_in_room.text = msgData.Player.IdInRoom.ToString();
         }
 
@@ -195,23 +199,24 @@ namespace UI
             if (msgData.Player.IdInRoom == Game.Instance.me.IdInRoom)
             {
                 m_准备.enabled = true;
-                m_准备.m_状态.selectedIndex = 1;
+                m_准备.m_状态.selectedIndex = msgData.Player.Ready ? 1 : 0;
+                Game.Instance.me.Ready = msgData.Player.Ready;
             }
 
-            SetMemberReady(msgData.Player.IdInRoom);
+            SetMemberReady(msgData.Player.IdInRoom, msgData.Player.Ready);
         }
 
-        private void SetMemberReady(int idInRoom)
+        private void SetMemberReady(int idInRoom, bool ready)
         {
             var memberIndex = FindMemberIndex(idInRoom);
             if (memberIndex < 0)
             {
-                Debug.LogWarning($"玩家准备，但未找到大厅头像: {idInRoom}");
+                Debug.LogWarning($"玩家准备状态变化，但未找到大厅头像: {idInRoom}");
                 return;
             }
 
             var member = (UI_shark_avatar_lobby)m_memberlist.GetChildAt(memberIndex);
-            member.m_准备.visible = true;
+            member.m_准备.visible = ready;
         }
 
         private int FindMemberIndex(int idInRoom)

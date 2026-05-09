@@ -93,7 +93,7 @@ public class RoomManager
         }
     }
 
-    public static void Ready(TcpClient client)
+    public static void Ready(ready_c2s msgData, TcpClient client)
     {
         if (!TryGetSessionRoom(client, out PlayerSession session, out Room room))
         {
@@ -101,7 +101,7 @@ public class RoomManager
             return;
         }
 
-        ResCode resCode = room.Ready(session.IdInRoom, out Player player);
+        var resCode = room.Ready(session.IdInRoom, msgData.IsReady, out var player);
         Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.ready_s2c, new ready_s2c
         {
             ResCode = resCode
