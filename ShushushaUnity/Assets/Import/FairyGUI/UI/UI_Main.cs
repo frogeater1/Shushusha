@@ -15,7 +15,9 @@ namespace UI
         public GButton m_确定;
         public UI_Button_开关 m_说;
         public UI_Button_开关 m_听;
+        public UI_魔力值条 m_魔力值;
         public GTextField m_倒计时;
+        public GTextField m_floor;
         public const string URL = "ui://56i33xfjj62k0";
 
         public static UI_Main CreateInstance()
@@ -35,7 +37,9 @@ namespace UI
             m_确定 = (GButton)GetChildAt(5);
             m_说 = (UI_Button_开关)GetChildAt(6);
             m_听 = (UI_Button_开关)GetChildAt(7);
+            m_魔力值 = (UI_魔力值条)GetChildAt(9);
             m_倒计时 = (GTextField)GetChildAt(12);
+            m_floor = (GTextField)GetChildAt(13);
             Init();
         }
         partial void Init();
