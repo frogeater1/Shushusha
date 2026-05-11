@@ -24,9 +24,9 @@ public class Game : MonoSingletonBase<Game>
 
     public GameObject 指示物Prefab;
     private GameObject indicatorInstance;
-    private CancellationTokenSource hideStageCountdownCts;
+    private CancellationTokenSource stageCountdownCts;
 
-    private const int HideStageCountdownSeconds = 30;
+    private const int StageCountdownSeconds = 30;
 
     protected override void Awake()
     {
@@ -132,12 +132,12 @@ public class Game : MonoSingletonBase<Game>
         SetFloor(msgData.CurrentFloor);
         uiMain.m_round.SetVar("count", msgData.Round.ToString()).FlushVars();
         uiMain.m_stage.text = $"{msgData.Stage}阶段";
-        CancelHideStageCountdown();
+        CancelStageCountdown();
 
         switch (msgData.Stage)
         {
             case GameStage.Hide:
-                StartHideStageCountdown().Forget();
+                StartStageCountdown().Forget();
 
                 if (Identity is PlayerIdentity.Shark or PlayerIdentity.SharkKing)
                 {
@@ -151,6 +151,9 @@ public class Game : MonoSingletonBase<Game>
                 }
 
                 break;
+            case GameStage.Kill:
+                StartStageCountdown().Forget();
+                break;
             default:
                 uiMain.m_倒计时.text = string.Empty;
                 break;
@@ -163,14 +166,14 @@ public class Game : MonoSingletonBase<Game>
         uiMain.m_floor.SetVar("count",CurrentFloor.ToString()).FlushVars();
     }
 
-    private async UniTaskVoid StartHideStageCountdown()
+    private async UniTaskVoid StartStageCountdown()
     {
         var cts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
-        hideStageCountdownCts = cts;
+        stageCountdownCts = cts;
 
         try
         {
-            for (var remaining = HideStageCountdownSeconds; remaining >= 0; remaining--)
+            for (var remaining = StageCountdownSeconds; remaining >= 0; remaining--)
             {
                 uiMain.m_倒计时.text = remaining.ToString();
 
@@ -187,18 +190,18 @@ public class Game : MonoSingletonBase<Game>
         }
         finally
         {
-            if (hideStageCountdownCts == cts)
+            if (stageCountdownCts == cts)
             {
-                hideStageCountdownCts = null;
+                stageCountdownCts = null;
             }
 
             cts.Dispose();
         }
     }
 
-    private void CancelHideStageCountdown()
+    private void CancelStageCountdown()
     {
-        hideStageCountdownCts?.Cancel();
+        stageCountdownCts?.Cancel();
     }
 
     private void TryPlaceHideStageIndicator()
