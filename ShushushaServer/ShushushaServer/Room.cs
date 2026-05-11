@@ -11,6 +11,8 @@ public class Room
     public int RoomId;
     public RoomState State = RoomState.Waiting;
     public int CurrentRound;
+    public int CurrentFloor = 1;
+    public int TargetFloor;
     public GameStage Stage = GameStage.None;
     public Player? Mouse;
     public Player? SharkKing;
@@ -113,12 +115,16 @@ public class Room
             {
                 Mouse = activePlayers[mouseIndex],
                 SharkKing = activePlayers[sharkKingIndex],
+                CurrentFloor = 1,
+                TargetFloor = CalculateTargetFloor(activePlayers.Count),
                 TargetClients = clients.Where(x => x != null).Select(x => x!).ToList()
             };
             Mouse = result.Mouse;
             SharkKing = result.SharkKing;
             State = RoomState.Playing;
             CurrentRound = 0;
+            CurrentFloor = result.CurrentFloor;
+            TargetFloor = result.TargetFloor;
             Stage = GameStage.None;
             return ResCode.Success;
         }
@@ -138,6 +144,8 @@ public class Room
             {
                 Round = CurrentRound,
                 Stage = Stage,
+                CurrentFloor = CurrentFloor,
+                TargetFloor = TargetFloor,
                 TargetClients = clients.Where(x => x != null).Select(x => x!).ToList()
             };
         }
@@ -237,6 +245,11 @@ public class Room
             Ready = false
         };
     }
+
+    private static int CalculateTargetFloor(int playerCount)
+    {
+        return playerCount * playerCount + playerCount;
+    }
 }
 
 public enum RoomState
@@ -249,6 +262,8 @@ public class StageChangeResult
 {
     public int Round { get; set; }
     public GameStage Stage { get; set; }
+    public int CurrentFloor { get; set; }
+    public int TargetFloor { get; set; }
     public List<TcpClient> TargetClients { get; set; } = new();
 }
 
@@ -256,5 +271,7 @@ public class GameStartResult
 {
     public Player Mouse { get; set; } = null!;
     public Player SharkKing { get; set; } = null!;
+    public int CurrentFloor { get; set; }
+    public int TargetFloor { get; set; }
     public List<TcpClient> TargetClients { get; set; } = new();
 }

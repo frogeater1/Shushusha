@@ -20,6 +20,7 @@ public class Game : MonoSingletonBase<Game>
     public Player me;
     public PlayerIdentity Identity { get; private set; } = PlayerIdentity.None;
     public GameStage CurrentStage { get; private set; } = GameStage.None;
+    public int CurrentFloor { get; private set; } = 1;
 
     public GameObject 指示物Prefab;
     private GameObject indicatorInstance;
@@ -122,11 +123,13 @@ public class Game : MonoSingletonBase<Game>
         uiMain.m_确定.visible = Identity is PlayerIdentity.Shark or PlayerIdentity.SharkKing;
         uiMain.m_技能.visible = Identity is PlayerIdentity.SharkKing;
         uiMain.m_确定.onClick.Set(() => SendIndicatorPosition().Forget());
+        SetFloor(1);
     }
 
     public void OnChangeStage(ChangeStage msgData)
     {
         CurrentStage = msgData.Stage;
+        SetFloor(msgData.CurrentFloor);
         uiMain.m_round.SetVar("count", msgData.Round.ToString()).FlushVars();
         uiMain.m_stage.text = $"{msgData.Stage}阶段";
         CancelHideStageCountdown();
@@ -152,6 +155,12 @@ public class Game : MonoSingletonBase<Game>
                 uiMain.m_倒计时.text = string.Empty;
                 break;
         }
+    }
+
+    private void SetFloor(int currentFloor)
+    {
+        CurrentFloor = currentFloor;
+        uiMain.m_floor.SetVar("count",CurrentFloor.ToString()).FlushVars();
     }
 
     private async UniTaskVoid StartHideStageCountdown()

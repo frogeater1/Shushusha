@@ -245,7 +245,8 @@ public class RoomManager
         var packet = Dispatcher.CreatePacket(MsgId.ChangeStage, new ChangeStage
         {
             Round = result.Round,
-            Stage = result.Stage
+            Stage = result.Stage,
+            CurrentFloor = result.CurrentFloor
         });
 
         Console.WriteLine($"Broadcast {JsonSerializer.Serialize(packet)} ");
