@@ -5,6 +5,7 @@ using Cysharp.Threading.Tasks;
 using FairyGUI;
 using ShushushaServer;
 using UnityEngine;
+using Utils;
 
 namespace UI
 {
@@ -21,7 +22,11 @@ namespace UI
             m_创建.onClick.Set(() => Create().Forget());
             m_加入.onClick.Set(() => { Join().Forget(); });
             m_准备.onClick.Set(() => { Ready().Forget(); });
-            m_开始.onClick.Set(() => { GameStart().Forget(); });
+            m_开始.onClick.Set(() =>
+            {
+                GameStart().Forget();
+                m_开始.ClickCoolDown().Forget();
+            });
         }
 
 
@@ -78,7 +83,7 @@ namespace UI
             //成功的话这里不用管，所有人会收到相同的成功消息，包含准备或取消准备后的状态
         }
 
-        private async UniTaskVoid GameStart()
+        private async UniTask GameStart()
         {
             var msgData = await Request.GameStart();
             switch (msgData.ResCode)

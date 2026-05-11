@@ -1,4 +1,5 @@
-﻿using Cysharp.Threading.Tasks;
+﻿using System;
+using Cysharp.Threading.Tasks;
 using FairyGUI;
 using UnityEngine;
 
@@ -6,7 +7,7 @@ namespace Utils
 {
     public static class Extension
     {
-        #region ToUniTask
+        #region UniTask
 
         public static UniTask TweenMoveAsync(this GObject gObject, Vector2 endValue, float duration)
         {
@@ -34,6 +35,21 @@ namespace Utils
             var task = new UniTaskCompletionSource();
             GTween.To(gObject.scale, endValue, duration).SetTarget(gObject, TweenPropType.Scale);
             return task.Task;
+        }
+
+        public static async UniTaskVoid ClickCoolDown(this GButton btn, float seconds = 0.5f)
+        {
+            btn.touchable = false;
+            var token = btn.displayObject.gameObject.GetCancellationTokenOnDestroy();
+            try
+            {
+                await UniTask.Delay(TimeSpan.FromSeconds(seconds), cancellationToken: token);
+            }
+            finally
+            {
+                if (btn is { isDisposed: false })
+                    btn.touchable = true;
+            }
         }
 
         #endregion
