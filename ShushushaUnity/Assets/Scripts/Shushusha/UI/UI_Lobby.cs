@@ -81,8 +81,16 @@ namespace UI
         private async UniTaskVoid GameStart()
         {
             var msgData = await Request.GameStart();
-            if (msgData.ResCode == ResCode.Success)
+            switch (msgData.ResCode)
             {
+                case ResCode.Success:
+                    break;
+                case ResCode.NotAllPlayersReady:
+                    ShowTip("还有玩家未准备");
+                    break;
+                default:
+                    Debug.LogWarning($"开始游戏失败: {msgData.ResCode}");
+                    break;
             }
         }
 
