@@ -13,6 +13,7 @@ public class Room
     public int CurrentRound;
     public int CurrentFloor = 1;
     public int TargetFloor;
+    public int Magic;
     public GameStage Stage = GameStage.None;
     public Player? Mouse;
     public Player? SharkKing;
@@ -137,6 +138,7 @@ public class Room
             if (stage == GameStage.Hide)
             {
                 CurrentRound++;
+                ResetMagic();
             }
 
             Stage = stage;
@@ -146,6 +148,7 @@ public class Room
                 Stage = Stage,
                 CurrentFloor = CurrentFloor,
                 TargetFloor = TargetFloor,
+                Magic = Magic,
                 TargetClients = clients.Where(x => x != null).Select(x => x!).ToList()
             };
         }
@@ -246,6 +249,16 @@ public class Room
         };
     }
 
+    private void ResetMagic()
+    {
+        Magic = CalculateInitialMagic(players.OfType<Player>().Count(), CurrentRound);
+    }
+
+    private static int CalculateInitialMagic(int playerCount, int round)
+    {
+        return playerCount + round - 1;
+    }
+
     private static int CalculateTargetFloor(int playerCount)
     {
         return playerCount * playerCount + playerCount;
@@ -264,6 +277,7 @@ public class StageChangeResult
     public GameStage Stage { get; set; }
     public int CurrentFloor { get; set; }
     public int TargetFloor { get; set; }
+    public int Magic { get; set; }
     public List<TcpClient> TargetClients { get; set; } = new();
 }
 

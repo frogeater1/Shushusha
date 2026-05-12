@@ -115,6 +115,7 @@ namespace ShushushaServer
         public int Round { get; set; }
         public GameStage Stage { get; set; }
         public int CurrentFloor { get; set; }
+        public int Magic { get; set; }
     }
 
     public class HideIndicator

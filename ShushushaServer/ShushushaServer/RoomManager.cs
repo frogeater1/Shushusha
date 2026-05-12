@@ -246,7 +246,8 @@ public class RoomManager
         {
             Round = result.Round,
             Stage = result.Stage,
-            CurrentFloor = result.CurrentFloor
+            CurrentFloor = result.CurrentFloor,
+            Magic = result.Magic
         });
 
         Console.WriteLine($"Broadcast {JsonSerializer.Serialize(packet)} ");
