@@ -21,6 +21,7 @@ public class Game : MonoSingletonBase<Game>
     public PlayerIdentity Identity { get; private set; } = PlayerIdentity.None;
     public GameStage CurrentStage { get; private set; } = GameStage.None;
     public int CurrentFloor { get; private set; } = 1;
+    public int Magic { get; private set; }
 
     public GameObject 指示物Prefab;
     private GameObject indicatorInstance;
@@ -123,6 +124,8 @@ public class Game : MonoSingletonBase<Game>
         uiMain.m_确定.visible = Identity is PlayerIdentity.Shark or PlayerIdentity.SharkKing;
         uiMain.m_技能.visible = Identity is PlayerIdentity.SharkKing;
         uiMain.m_确定.onClick.Set(() => SendIndicatorPosition().Forget());
+        SetMagicVisible(Identity == PlayerIdentity.Mouse);
+        SetMagic(0);
         SetFloor(1);
     }
 
@@ -130,6 +133,7 @@ public class Game : MonoSingletonBase<Game>
     {
         CurrentStage = msgData.Stage;
         SetFloor(msgData.CurrentFloor);
+        SetMagic(msgData.Magic);
         uiMain.m_round.SetVar("count", msgData.Round.ToString()).FlushVars();
         uiMain.m_stage.text = $"{msgData.Stage}阶段";
         CancelStageCountdown();
@@ -163,7 +167,30 @@ public class Game : MonoSingletonBase<Game>
     private void SetFloor(int currentFloor)
     {
         CurrentFloor = currentFloor;
-        uiMain.m_floor.SetVar("count",CurrentFloor.ToString()).FlushVars();
+        uiMain.m_floor.SetVar("count", CurrentFloor.ToString()).FlushVars();
+    }
+
+    private void SetMagicVisible(bool visible)
+    {
+        uiMain.m_魔力txt.visible = visible;
+        uiMain.m_魔力值.visible = visible;
+    }
+
+    private void SetMagic(int magic)
+    {
+        Magic = magic;
+        if (Identity != PlayerIdentity.Mouse)
+        {
+            return;
+        }
+
+        var controller = uiMain.m_魔力值.m_魔力值;
+        if (controller.pageCount <= 0)
+        {
+            return;
+        }
+
+        controller.selectedIndex = Mathf.Clamp(Magic, 0, controller.pageCount - 1);
     }
 
     private async UniTaskVoid StartStageCountdown()
