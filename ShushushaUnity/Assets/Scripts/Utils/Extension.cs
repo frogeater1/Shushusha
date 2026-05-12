@@ -37,19 +37,14 @@ namespace Utils
             return task.Task;
         }
 
-        public static async UniTaskVoid ClickCoolDown(this GButton btn, float seconds = 0.5f)
+
+        #endregion
+
+        # region FGUI
+
+        public static void SetCountText(this GTextField textField, int count)
         {
-            btn.touchable = false;
-            var token = btn.displayObject.gameObject.GetCancellationTokenOnDestroy();
-            try
-            {
-                await UniTask.Delay(TimeSpan.FromSeconds(seconds), cancellationToken: token);
-            }
-            finally
-            {
-                if (btn is { isDisposed: false })
-                    btn.touchable = true;
-            }
+            textField.SetVar("count", count.ToString()).FlushVars();
         }
 
         #endregion

@@ -40,8 +40,8 @@ namespace UI
             m_听 = (UI_Button_开关)GetChildAt(7);
             m_魔力txt = (GTextField)GetChildAt(8);
             m_魔力值 = (UI_魔力值条)GetChildAt(9);
-            m_倒计时 = (GTextField)GetChildAt(12);
-            m_floor = (GTextField)GetChildAt(13);
+            m_倒计时 = (GTextField)GetChildAt(11);
+            m_floor = (GTextField)GetChildAt(12);
             Init();
         }
         partial void Init();

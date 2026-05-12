@@ -135,7 +135,7 @@ public class Game : MonoSingletonBase<Game>
         SetFloor(msgData.CurrentFloor);
         SetMagic(msgData.Magic);
         ApplyIndicators(msgData.Indicators);
-        uiMain.m_round.SetVar("count", msgData.Round.ToString()).FlushVars();
+        uiMain.m_round.SetCountText(msgData.Round);
         uiMain.m_stage.text = $"{msgData.Stage}阶段";
         CancelStageCountdown();
 
@@ -168,7 +168,7 @@ public class Game : MonoSingletonBase<Game>
     private void SetFloor(int currentFloor)
     {
         CurrentFloor = currentFloor;
-        uiMain.m_floor.SetVar("count", CurrentFloor.ToString()).FlushVars();
+        uiMain.m_floor.SetCountText(CurrentFloor);
     }
 
     private void SetMagicVisible(bool visible)
@@ -179,19 +179,13 @@ public class Game : MonoSingletonBase<Game>
 
     private void SetMagic(int magic)
     {
-        Magic = magic;
         if (Identity != PlayerIdentity.Mouse)
         {
             return;
         }
 
-        var controller = uiMain.m_魔力值.m_魔力值;
-        if (controller.pageCount <= 0)
-        {
-            return;
-        }
-
-        controller.selectedIndex = Mathf.Clamp(Magic, 0, controller.pageCount - 1);
+        Magic = magic;
+        uiMain.m_魔力值.m_魔力值.selectedIndex = magic;
     }
 
     private async UniTaskVoid StartStageCountdown()

@@ -18,7 +18,7 @@ namespace ShushushaServer
         {
             while (GetWaitingDistributeMsg() is { } msg)
             {
-                Debug.Log(msg.Data.ToString());
+                Debug.Log(msg.MsgId + msg.Data.ToString());
                 switch (msg.MsgId)
                 {
                     // case LogicUpdate data:

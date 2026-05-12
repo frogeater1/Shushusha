@@ -22,10 +22,23 @@ namespace UI
             m_创建.onClick.Set(() => Create().Forget());
             m_加入.onClick.Set(() => { Join().Forget(); });
             m_准备.onClick.Set(() => { Ready().Forget(); });
-            m_开始.onClick.Set(() =>
+            m_开始.onClick.Set(async () =>
             {
-                GameStart().Forget();
-                m_开始.ClickCoolDown().Forget();
+                m_开始.touchable = false;
+                try
+                {
+                    await GameStart();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    throw;
+                }
+                finally
+                {
+                    if (m_开始 is { isDisposed: false })
+                        m_开始.touchable = true;
+                }
             });
         }
 

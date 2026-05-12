@@ -21,6 +21,7 @@ namespace UI
         public GButton m_加入;
         public GTextInput m_房间号输入;
         public GTextField m_waiting;
+        public UI_魔力值条 m_魔力值;
         public const string URL = "ui://56i33xfjpoiun";
 
         public static UI_Lobby CreateInstance()
@@ -41,6 +42,7 @@ namespace UI
             m_加入 = (GButton)GetChildAt(7);
             m_房间号输入 = (GTextInput)GetChildAt(9);
             m_waiting = (GTextField)GetChildAt(11);
+            m_魔力值 = (UI_魔力值条)GetChildAt(12);
             Init();
         }
         partial void Init();
