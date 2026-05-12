@@ -6,7 +6,7 @@ namespace ShushushaServer;
 public class Room
 {
     public const int MaxPlayers = 12;
-    private const int MinPlayersToStart = 2;
+    private const int MinPlayersToStart = 1;
     private const int InitialIndicatorCount = 3;
 
     public int RoomId;
@@ -361,6 +361,7 @@ public class Room
             A = 1f
         };
     }
+
     private static int CalculateInitialMagic(int playerCount, int round)
     {
         return playerCount + round - 1;
