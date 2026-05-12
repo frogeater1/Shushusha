@@ -17,7 +17,8 @@ public class Room
     public int Magic;
     public GameStage Stage = GameStage.None;
     public DateTime StageEndTimeUtc = DateTime.MaxValue;
-    public List<ServerIndicator> Indicators = CreateInitialIndicators(InitialIndicatorCount);
+    private readonly List<ServerIndicator> initialIndicators;
+    public List<ServerIndicator> Indicators;
     public Player? Mouse;
     public Player? SharkKing;
     public TcpClient?[] clients = new TcpClient[MaxPlayers];
@@ -27,6 +28,8 @@ public class Room
     public Room(create_room_c2s msg, TcpClient client1, int roomId)
     {
         RoomId = roomId;
+        initialIndicators = CreateInitialIndicators(InitialIndicatorCount);
+        Indicators = CloneIndicators(initialIndicators);
         clients[0] = client1;
         players[0] = CreateRoomPlayer(msg.Player.Uid, 0);
     }
@@ -311,7 +314,12 @@ public class Room
 
     private void ResetIndicators()
     {
-        Indicators = CreateInitialIndicators(InitialIndicatorCount);
+        Indicators = CloneIndicators(initialIndicators);
+    }
+
+    private static List<ServerIndicator> CloneIndicators(List<ServerIndicator> indicators)
+    {
+        return indicators.Select(CloneIndicator).ToList();
     }
 
     private static List<ServerIndicator> CreateInitialIndicators(int count)
@@ -329,6 +337,17 @@ public class Room
         }
 
         return indicators;
+    }
+
+    private static ServerIndicator CloneIndicator(ServerIndicator indicator)
+    {
+        return new ServerIndicator
+        {
+            IndicatorId = indicator.IndicatorId,
+            Position = indicator.Position,
+            Rotation = indicator.Rotation,
+            Color = indicator.Color
+        };
     }
 
     private static ServerVector3 CreateRandomIndicatorPosition()
