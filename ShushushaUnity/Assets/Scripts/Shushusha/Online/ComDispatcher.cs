@@ -29,24 +29,24 @@ namespace ShushushaServer
         /// </summary>
         public static void Send(NetworkStream stream, JsonPacket packet)
         {
-            byte[] packetBytes = JsonSerializer.SerializeToUtf8Bytes(packet, JsonOptions);
+            var packetBytes = JsonSerializer.SerializeToUtf8Bytes(packet, JsonOptions);
             stream.Write(BitConverter.GetBytes(packetBytes.Length), 0, sizeof(int));
             stream.Write(packetBytes, 0, packetBytes.Length);
         }
 
 
-        public static JsonPacket Receive(NetworkStream stream)
+        private static JsonPacket Receive(NetworkStream stream)
         {
-            byte[] lengthBytes = ReadExact(stream, sizeof(int));
-            int packetLength = BitConverter.ToInt32(lengthBytes, 0);
+            var lengthBytes = ReadExact(stream, sizeof(int));
+            var packetLength = BitConverter.ToInt32(lengthBytes, 0);
 
             if (packetLength <= 0)
             {
                 throw new InvalidDataException($"Invalid packet length: {packetLength}");
             }
 
-            byte[] packetBytes = ReadExact(stream, packetLength);
-            JsonPacket? packet = JsonSerializer.Deserialize<JsonPacket>(packetBytes, JsonOptions);
+            var packetBytes = ReadExact(stream, packetLength);
+            var packet = JsonSerializer.Deserialize<JsonPacket>(packetBytes, JsonOptions);
 
             if (packet is null)
             {
@@ -56,19 +56,19 @@ namespace ShushushaServer
             return packet;
         }
 
-        public static T? GetPacketData<T>(JsonPacket packet)
+        public static T GetPacketData<T>(JsonPacket packet)
         {
-            return packet.Data.Deserialize<T>(JsonOptions);
+            return packet.Data.Deserialize<T>(JsonOptions)!;
         }
 
         private static byte[] ReadExact(NetworkStream stream, int byteCount)
         {
-            byte[] buffer = new byte[byteCount];
-            int offset = 0;
+            var buffer = new byte[byteCount];
+            var offset = 0;
 
             while (offset < byteCount)
             {
-                int bytesRead = stream.Read(buffer, offset, byteCount - offset);
+                var bytesRead = stream.Read(buffer, offset, byteCount - offset);
                 if (bytesRead == 0)
                 {
                     throw new IOException("Remote socket closed the connection.");

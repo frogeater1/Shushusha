@@ -361,7 +361,7 @@ public class Game : MonoSingletonBase<Game>
 
     private void HideNonUiElements()
     {
-        foreach (var renderer in FindObjectsOfType<Renderer>(true))
+        foreach (var renderer in FindObjectsByType<Renderer>(FindObjectsInactive.Include))
         {
             if (IsUiObject(renderer.gameObject))
             {
@@ -371,7 +371,7 @@ public class Game : MonoSingletonBase<Game>
             renderer.enabled = false;
         }
 
-        foreach (var light in FindObjectsOfType<Light>(true))
+        foreach (var light in FindObjectsByType<Light>(FindObjectsInactive.Include))
         {
             if (IsUiObject(light.gameObject))
             {
