@@ -6,6 +6,8 @@ namespace ShushushaServer;
 
 public class RoomManager
 {
+    private const int HideStageSeconds = 30;
+
     public static ConcurrentDictionary<int, Room> rooms = new();
     private static readonly ConcurrentDictionary<TcpClient, PlayerSession> playerSessions = new();
     private static int nextRoomId;
@@ -256,6 +258,25 @@ public class RoomManager
         {
             Dispatcher.Send(targetClient, packet);
         }
+
+        if (stage == GameStage.Hide)
+        {
+            ScheduleHideStageEnd(room, result.Round);
+        }
+    }
+
+    private static void ScheduleHideStageEnd(Room room, int round)
+    {
+        Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(HideStageSeconds));
+            if (!room.IsCurrentStage(GameStage.Hide, round))
+            {
+                return;
+            }
+
+            BroadcastStageChange(room, GameStage.Kill);
+        });
     }
 
     private static bool TryGetSessionRoom(TcpClient client, out PlayerSession session, out Room room)

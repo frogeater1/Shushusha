@@ -154,6 +154,14 @@ public class Room
         }
     }
 
+    public bool IsCurrentStage(GameStage stage, int round)
+    {
+        lock (this)
+        {
+            return Stage == stage && CurrentRound == round;
+        }
+    }
+
     public List<TcpClient> GetSharkClients()
     {
         lock (this)
