@@ -19,14 +19,14 @@ namespace ShushushaServer
         ready_s2c = 1006,
         game_start_s2c = 1007,
         game_start_c2s = 1008,
-        hide_indicator_c2s = 1009,
-        hide_indicator_s2c = 1010,
+        change_indicator_c2s = 1009,
+        change_indicator_s2c = 1010,
         JoinRoom = 2000, //这个是其他人加入房间时服务端主动发的
         GameStart = 2001,
         PlayerLeft = 2002,
         Ready = 2003,
         ChangeStage = 2004,
-        HideIndicator = 2005,
+        ChangeIndicator = 2005,
     }
 
     public class create_room_s2c
@@ -73,16 +73,16 @@ namespace ShushushaServer
         public ResCode ResCode { get; set; }
     }
 
-    public class hide_indicator_c2s
+    public class change_indicator_c2s
     {
         public int RoomId { get; set; }
         public int IdInRoom { get; set; }
-        public float X { get; set; }
-        public float Y { get; set; }
-        public float Z { get; set; }
+        public int IndicatorId { get; set; }
+        public ServerVector3 Position { get; set; } = new();
+        public ServerColor Color { get; set; } = new();
     }
 
-    public class hide_indicator_s2c
+    public class change_indicator_s2c
     {
         public ResCode ResCode { get; set; }
     }
@@ -118,12 +118,27 @@ namespace ShushushaServer
         public int Magic { get; set; }
     }
 
-    public class HideIndicator
+    public class ChangeIndicator
     {
         public int IdInRoom { get; set; }
+        public int IndicatorId { get; set; }
+        public ServerVector3 Position { get; set; } = new();
+        public ServerColor Color { get; set; } = new();
+    }
+
+    public class ServerVector3
+    {
         public float X { get; set; }
         public float Y { get; set; }
         public float Z { get; set; }
+    }
+
+    public class ServerColor
+    {
+        public float R { get; set; }
+        public float G { get; set; }
+        public float B { get; set; }
+        public float A { get; set; }
     }
 
 

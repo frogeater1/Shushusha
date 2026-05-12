@@ -23,8 +23,8 @@ public class Game : MonoSingletonBase<Game>
     public int CurrentFloor { get; private set; } = 1;
     public int Magic { get; private set; }
 
-    public GameObject 指示物Prefab;
-    private GameObject indicatorInstance;
+    public List<GameObject> 指示物列表 = new();
+    private GameObject selectedIndicator;
     private CancellationTokenSource stageCountdownCts;
 
     private const int StageCountdownSeconds = 30;
@@ -121,9 +121,8 @@ public class Game : MonoSingletonBase<Game>
             PlayerIdentity.SharkKing => "我是鲨王",
             _ => "我是鲨鲨"
         };
-        uiMain.m_确定.visible = Identity is PlayerIdentity.Shark or PlayerIdentity.SharkKing;
+        uiMain.m_确定.visible = false;
         uiMain.m_技能.visible = Identity is PlayerIdentity.SharkKing;
-        uiMain.m_确定.onClick.Set(() => SendIndicatorPosition().Forget());
         SetMagicVisible(Identity == PlayerIdentity.Mouse);
         SetMagic(0);
         SetFloor(1);
@@ -250,62 +249,52 @@ public class Game : MonoSingletonBase<Game>
         }
 
         var ray = mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
-        if (!TryGetSceneClickPoint(ray, out var point))
+        if (!TryGetIndicator(ray, out var indicator))
         {
             return;
         }
 
-        if (indicatorInstance != null)
-        {
-            Destroy(indicatorInstance);
-        }
-
-        if (指示物Prefab == null)
-        {
-            Debug.LogWarning("未设置指示物Prefab");
-            return;
-        }
-
-        indicatorInstance = Instantiate(指示物Prefab, point, Quaternion.identity);
+        ChangeIndicator(indicator).Forget();
     }
 
-    private async UniTaskVoid SendIndicatorPosition()
+    private async UniTaskVoid ChangeIndicator(GameObject indicator)
     {
         if (CurrentStage != GameStage.Hide || Identity == PlayerIdentity.Mouse)
         {
             return;
         }
 
-        if (indicatorInstance == null)
+        selectedIndicator = indicator;
+        var indicatorId = 指示物列表.IndexOf(indicator);
+        if (indicatorId < 0)
         {
-            Debug.LogWarning("尚未放置指示物");
+            Debug.LogWarning("指示物未配置到指示物列表");
             return;
         }
 
-        var msgData = await Request.HideIndicator(indicatorInstance.transform.position);
+        var msgData = await Request.ChangeIndicator(indicatorId, indicator.transform.position, GetIndicatorColor(indicator));
         if (msgData.ResCode != ResCode.Success)
         {
-            Debug.LogWarning($"发送指示物坐标失败: {msgData.ResCode}");
+            Debug.LogWarning($"发送指示物变化失败: {msgData.ResCode}");
             return;
         }
-
-        uiMain.m_确定.enabled = false;
     }
 
-    public void OnHideIndicator(HideIndicator msgData)
+    public void OnChangeIndicator(ChangeIndicator msgData)
     {
         if (msgData.IdInRoom == me.IdInRoom)
         {
             return;
         }
 
-        if (指示物Prefab == null)
+        selectedIndicator = FindIndicator(msgData.IndicatorId);
+        if (selectedIndicator == null)
         {
-            Debug.LogWarning("未设置指示物Prefab");
+            Debug.LogWarning($"未找到指示物: {msgData.IndicatorId}");
             return;
         }
 
-        Instantiate(指示物Prefab, new Vector3(msgData.X, msgData.Y, msgData.Z), Quaternion.identity);
+        ApplyIndicatorChange(selectedIndicator, msgData);
     }
 
     private static bool IsPointerOnUi()
@@ -314,26 +303,58 @@ public class Game : MonoSingletonBase<Game>
         return touchTarget != null && touchTarget != FairyGUI.GRoot.inst;
     }
 
-    private bool TryGetSceneClickPoint(Ray ray, out Vector3 point)
+    private bool TryGetIndicator(Ray ray, out GameObject indicator)
     {
         foreach (var hit in Physics.RaycastAll(ray).OrderBy(x => x.distance))
         {
-            if (indicatorInstance != null && hit.transform.IsChildOf(indicatorInstance.transform))
-            {
-                continue;
-            }
-
             if (IsUiObject(hit.collider.gameObject))
             {
                 continue;
             }
 
-            point = hit.point;
-            return true;
+            var clickedIndicator = FindIndicator(hit.collider.gameObject);
+            if (clickedIndicator != null)
+            {
+                indicator = clickedIndicator;
+                return true;
+            }
         }
 
-        point = default;
+        indicator = null;
         return false;
+    }
+
+    private GameObject FindIndicator(GameObject target)
+    {
+        return 指示物列表.FirstOrDefault(indicator =>
+            indicator != null && target.transform.IsChildOf(indicator.transform));
+    }
+
+    private GameObject FindIndicator(int indicatorId)
+    {
+        if (indicatorId < 0 || indicatorId >= 指示物列表.Count)
+        {
+            return null;
+        }
+
+        return 指示物列表[indicatorId];
+    }
+
+    private static Color GetIndicatorColor(GameObject indicator)
+    {
+        var renderer = indicator.GetComponent<Renderer>();
+        return renderer != null ? renderer.material.color : Color.white;
+    }
+
+    private static void ApplyIndicatorChange(GameObject indicator, ChangeIndicator msgData)
+    {
+        indicator.transform.position = new Vector3(msgData.Position.X, msgData.Position.Y, msgData.Position.Z);
+
+        var renderer = indicator.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            renderer.material.color = new Color(msgData.Color.R, msgData.Color.G, msgData.Color.B, msgData.Color.A);
+        }
     }
 
     private void HideNonUiElements()

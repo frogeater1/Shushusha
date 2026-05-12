@@ -16,7 +16,7 @@ namespace ShushushaServer
             { MsgId.join_room_s2c, new UniTaskCompletionSource<JsonPacket>() },
             { MsgId.ready_s2c, new UniTaskCompletionSource<JsonPacket>() },
             { MsgId.game_start_s2c, new UniTaskCompletionSource<JsonPacket>() },
-            { MsgId.hide_indicator_s2c, new UniTaskCompletionSource<JsonPacket>() },
+            { MsgId.change_indicator_s2c, new UniTaskCompletionSource<JsonPacket>() },
         };
 
         public static async UniTask<create_room_s2c> CreateRoom()
@@ -71,18 +71,29 @@ namespace ShushushaServer
             return Dispatcher.GetPacketData<game_start_s2c>(await source.Task);
         }
 
-        public static async UniTask<hide_indicator_s2c> HideIndicator(Vector3 position)
+        public static async UniTask<change_indicator_s2c> ChangeIndicator(int indicatorId, Vector3 position, Color color)
         {
-            Dispatcher.SendMsg(Dispatcher.CreatePacket(MsgId.hide_indicator_c2s, new hide_indicator_c2s
+            Dispatcher.SendMsg(Dispatcher.CreatePacket(MsgId.change_indicator_c2s, new change_indicator_c2s
             {
                 RoomId = int.Parse(Game.Instance.uilobby.m_房间号.text),
                 IdInRoom = Game.Instance.me.IdInRoom,
-                X = position.x,
-                Y = position.y,
-                Z = position.z
+                IndicatorId = indicatorId,
+                Position = new ServerVector3
+                {
+                    X = position.x,
+                    Y = position.y,
+                    Z = position.z
+                },
+                Color = new ServerColor
+                {
+                    R = color.r,
+                    G = color.g,
+                    B = color.b,
+                    A = color.a
+                }
             }));
-            var source = tasks[MsgId.hide_indicator_s2c];
-            return Dispatcher.GetPacketData<hide_indicator_s2c>(await source.Task);
+            var source = tasks[MsgId.change_indicator_s2c];
+            return Dispatcher.GetPacketData<change_indicator_s2c>(await source.Task);
         }
 
         public static void Response(JsonPacket msg)

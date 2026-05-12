@@ -51,8 +51,8 @@ public static partial class Dispatcher
                     case MsgId.game_start_c2s:
                         RoomManager.GameStart(client);
                         break;
-                    case MsgId.hide_indicator_c2s:
-                        RoomManager.HideIndicator(GetPacketData<hide_indicator_c2s>(packet)!, client);
+                    case MsgId.change_indicator_c2s:
+                        RoomManager.ChangeIndicator(GetPacketData<change_indicator_c2s>(packet)!, client);
                         break;
                 }
             }

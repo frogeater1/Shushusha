@@ -163,25 +163,25 @@ public class RoomManager
         });
     }
 
-    public static void HideIndicator(hide_indicator_c2s msgData, TcpClient client)
+    public static void ChangeIndicator(change_indicator_c2s msgData, TcpClient client)
     {
         if (!TryGetSessionRoom(client, out PlayerSession session, out Room room))
         {
-            Console.WriteLine("HideIndicator ignored because client has no room session.");
+            Console.WriteLine("ChangeIndicator ignored because client has no room session.");
             return;
         }
 
-        Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.hide_indicator_s2c, new hide_indicator_s2c
+        Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.change_indicator_s2c, new change_indicator_s2c
         {
             ResCode = ResCode.Success
         }));
 
-        var packet = Dispatcher.CreatePacket(MsgId.HideIndicator, new HideIndicator
+        var packet = Dispatcher.CreatePacket(MsgId.ChangeIndicator, new ChangeIndicator
         {
             IdInRoom = session.IdInRoom,
-            X = msgData.X,
-            Y = msgData.Y,
-            Z = msgData.Z
+            IndicatorId = msgData.IndicatorId,
+            Position = msgData.Position,
+            Color = msgData.Color
         });
 
         Console.WriteLine($"Broadcast {JsonSerializer.Serialize(packet)} ");
