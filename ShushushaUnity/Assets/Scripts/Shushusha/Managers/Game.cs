@@ -28,8 +28,6 @@ public class Game : MonoSingletonBase<Game>
     private GameObject selectedIndicator;
     private CancellationTokenSource stageCountdownCts;
 
-    private const int StageCountdownSeconds = 30;
-
     protected override void Awake()
     {
         base.Awake();
@@ -139,28 +137,33 @@ public class Game : MonoSingletonBase<Game>
         uiMain.m_stage.text = $"{msgData.Stage}阶段";
         CancelStageCountdown();
 
+        if (msgData.StageSeconds > 0)
+        {
+            StartStageCountdown(msgData.StageSeconds).Forget();
+        }
+        else
+        {
+            uiMain.m_倒计时.text = string.Empty;
+        }
+
         switch (msgData.Stage)
         {
+            case GameStage.Observe:
+                break;
             case GameStage.Hide:
-                StartStageCountdown().Forget();
-
-                if (Identity is PlayerIdentity.Shark or PlayerIdentity.SharkKing)
+                switch (Identity)
                 {
-                    uiMain.m_确定.enabled = true;
-                }
-
-                if (Identity == PlayerIdentity.Mouse)
-                {
-                    HideNonUiElements();
-                    BlackoutGameCamera();
+                    case PlayerIdentity.Shark or PlayerIdentity.SharkKing:
+                        uiMain.m_确定.enabled = true;
+                        break;
+                    case PlayerIdentity.Mouse:
+                        BlackoutForMouse();
+                        break;
                 }
 
                 break;
             case GameStage.Kill:
-                StartStageCountdown().Forget();
-                break;
             default:
-                uiMain.m_倒计时.text = string.Empty;
                 break;
         }
     }
@@ -188,14 +191,14 @@ public class Game : MonoSingletonBase<Game>
         uiMain.m_魔力值.m_魔力值.selectedIndex = magic;
     }
 
-    private async UniTaskVoid StartStageCountdown()
+    private async UniTaskVoid StartStageCountdown(int seconds)
     {
         var cts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
         stageCountdownCts = cts;
 
         try
         {
-            for (var remaining = StageCountdownSeconds; remaining >= 0; remaining--)
+            for (var remaining = seconds; remaining >= 0; remaining--)
             {
                 uiMain.m_倒计时.text = remaining.ToString();
 
@@ -408,7 +411,7 @@ public class Game : MonoSingletonBase<Game>
         }
     }
 
-    private void HideNonUiElements()
+    private void BlackoutForMouse()
     {
         foreach (var renderer in FindObjectsByType<Renderer>(FindObjectsInactive.Include))
         {
@@ -429,10 +432,7 @@ public class Game : MonoSingletonBase<Game>
 
             light.enabled = false;
         }
-    }
 
-    private static void BlackoutGameCamera()
-    {
         var mainCamera = Camera.main;
         if (mainCamera == null)
         {

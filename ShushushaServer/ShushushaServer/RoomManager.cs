@@ -9,7 +9,7 @@ public class RoomManager
     public static RoomManager Instance { get; } = new();
 
     private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(100);
-    private static readonly TimeSpan GameStartDelay = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan ObserveStageDuration = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan HideStageDuration = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan KillStageDuration = TimeSpan.FromSeconds(30);
 
@@ -130,13 +130,13 @@ public class RoomManager
 
     public void GameStart(TcpClient client)
     {
-        if (!TryGetSessionRoom(client, out PlayerSession session, out Room room))
+        if (!TryGetSessionRoom(client, out var session, out var room))
         {
             Console.WriteLine("GameStart ignored because client has no room session.");
             return;
         }
 
-        var resCode = room.TryStartGame(session.IdInRoom, GameStartDelay, out GameStartResult gameStartResult);
+        var resCode = room.TryStartGame(session.IdInRoom, out var gameStartResult);
         if (resCode != ResCode.Success)
         {
             Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.game_start_s2c, new game_start_s2c
@@ -162,6 +162,8 @@ public class RoomManager
             Console.WriteLine($"Send {JsonSerializer.Serialize(gameStartMsg)} ");
             Dispatcher.Send(targetClient, gameStartMsg);
         }
+
+        BroadcastStageChange(room, GameStage.Observe);
     }
 
     public void ChangeIndicator(change_indicator_c2s msgData, TcpClient client)
@@ -262,7 +264,7 @@ public class RoomManager
         var now = DateTime.UtcNow;
         foreach (var room in rooms.Values)
         {
-            if (room.TryGetNextStage(now, out GameStage nextStage))
+            if (room.TryGetNextStage(now, out var nextStage))
             {
                 BroadcastStageChange(room, nextStage);
             }
@@ -276,6 +278,7 @@ public class RoomManager
         {
             Round = result.Round,
             Stage = result.Stage,
+            StageSeconds = result.StageSeconds,
             CurrentFloor = result.CurrentFloor,
             Magic = result.Magic,
             Indicators = result.Indicators
@@ -292,6 +295,7 @@ public class RoomManager
     {
         return stage switch
         {
+            GameStage.Observe => ObserveStageDuration,
             GameStage.Hide => HideStageDuration,
             GameStage.Kill => KillStageDuration,
             _ => TimeSpan.Zero

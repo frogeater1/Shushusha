@@ -114,6 +114,7 @@ namespace ShushushaServer
     {
         public int Round { get; set; }
         public GameStage Stage { get; set; }
+        public int StageSeconds { get; set; }
         public int CurrentFloor { get; set; }
         public int Magic { get; set; }
         public List<ServerIndicator> Indicators { get; set; } = new();
@@ -175,7 +176,8 @@ namespace ShushushaServer
     public enum GameStage
     {
         None = 0,
-        Hide = 1,
-        Kill = 2
+        Observe = 1,
+        Hide = 2,
+        Kill = 3
     }
 }

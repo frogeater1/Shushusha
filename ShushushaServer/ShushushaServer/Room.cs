@@ -6,7 +6,7 @@ namespace ShushushaServer;
 public class Room
 {
     public const int MaxPlayers = 12;
-    private const int MinPlayersToStart = 1;
+    private const int MinPlayersToStart = 3;
     private const int InitialIndicatorCount = 3;
 
     public int RoomId;
@@ -23,7 +23,6 @@ public class Room
     public TcpClient?[] clients = new TcpClient[MaxPlayers];
     public Player?[] players = new Player[MaxPlayers];
 
-    public ConcurrentQueue<JsonPacket> waitingMsgs = new();
 
     public Room(create_room_c2s msg, TcpClient client1, int roomId)
     {
@@ -81,7 +80,7 @@ public class Room
         }
     }
 
-    public ResCode TryStartGame(int idInRoom, TimeSpan gameStartDelay, out GameStartResult result)
+    public ResCode TryStartGame(int idInRoom, out GameStartResult result)
     {
         lock (this)
         {
@@ -130,7 +129,7 @@ public class Room
             CurrentFloor = result.CurrentFloor;
             TargetFloor = result.TargetFloor;
             Stage = GameStage.None;
-            StageEndTimeUtc = DateTime.UtcNow.Add(gameStartDelay);
+            StageEndTimeUtc = DateTime.MaxValue;
             return ResCode.Success;
         }
     }
@@ -139,7 +138,7 @@ public class Room
     {
         lock (this)
         {
-            if (stage == GameStage.Hide)
+            if (stage == GameStage.Observe || (stage == GameStage.Hide && Stage != GameStage.Observe))
             {
                 CurrentRound++;
                 ResetMagic();
@@ -152,6 +151,7 @@ public class Room
             {
                 Round = CurrentRound,
                 Stage = Stage,
+                StageSeconds = (int)stageDuration.TotalSeconds,
                 CurrentFloor = CurrentFloor,
                 TargetFloor = TargetFloor,
                 Magic = Magic,
@@ -198,7 +198,7 @@ public class Room
 
             nextStage = Stage switch
             {
-                GameStage.None => GameStage.Hide,
+                GameStage.Observe => GameStage.Hide,
                 GameStage.Hide => GameStage.Kill,
                 GameStage.Kill => GameStage.Hide,
                 _ => GameStage.None
@@ -383,6 +383,7 @@ public class StageChangeResult
 {
     public int Round { get; set; }
     public GameStage Stage { get; set; }
+    public int StageSeconds { get; set; }
     public int CurrentFloor { get; set; }
     public int TargetFloor { get; set; }
     public int Magic { get; set; }
