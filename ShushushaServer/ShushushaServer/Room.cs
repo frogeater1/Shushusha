@@ -7,6 +7,7 @@ public class Room
 {
     public const int MaxPlayers = 12;
     private const int MinPlayersToStart = 2;
+    private const int InitialIndicatorCount = 3;
 
     public int RoomId;
     public RoomState State = RoomState.Waiting;
@@ -16,6 +17,7 @@ public class Room
     public int Magic;
     public GameStage Stage = GameStage.None;
     public DateTime StageEndTimeUtc = DateTime.MaxValue;
+    public List<ServerIndicator> Indicators = CreateInitialIndicators(InitialIndicatorCount);
     public Player? Mouse;
     public Player? SharkKing;
     public TcpClient?[] clients = new TcpClient[MaxPlayers];
@@ -34,14 +36,14 @@ public class Room
     {
         lock (this)
         {
-            notifyClients = new();
+            notifyClients = [];
             if (State != RoomState.Waiting)
             {
                 joinedPlayer = null!;
                 return ResCode.GameAlreadyStarted;
             }
 
-            for (int i = 0; i < clients.Length; i++)
+            for (var i = 0; i < clients.Length; i++)
             {
                 if (clients[i] != null)
                 {
@@ -51,7 +53,7 @@ public class Room
                 clients[i] = client;
                 joinedPlayer = CreateRoomPlayer(msg.Player.Uid, i);
                 players[i] = joinedPlayer;
-                int joinedIdInRoom = joinedPlayer.IdInRoom;
+                var joinedIdInRoom = joinedPlayer.IdInRoom;
                 notifyClients = clients
                     .Where((x, idx) => x != null && idx != joinedIdInRoom)
                     .Select(x => x!)
@@ -106,8 +108,8 @@ public class Room
                 return ResCode.NotAllPlayersReady;
             }
 
-            int mouseIndex = Random.Shared.Next(activePlayers.Count);
-            int sharkKingIndex = Random.Shared.Next(activePlayers.Count - 1);
+            var mouseIndex = Random.Shared.Next(activePlayers.Count);
+            var sharkKingIndex = Random.Shared.Next(activePlayers.Count - 1);
             if (sharkKingIndex >= mouseIndex)
             {
                 sharkKingIndex++;
@@ -141,6 +143,7 @@ public class Room
             {
                 CurrentRound++;
                 ResetMagic();
+                ResetIndicators();
             }
 
             Stage = stage;
@@ -152,8 +155,34 @@ public class Room
                 CurrentFloor = CurrentFloor,
                 TargetFloor = TargetFloor,
                 Magic = Magic,
+                Indicators = Indicators,
                 TargetClients = clients.Where(x => x != null).Select(x => x!).ToList()
             };
+        }
+    }
+
+    public bool ChangeIndicator(change_indicator_c2s msgData, out ChangeIndicator result)
+    {
+        lock (this)
+        {
+            result = new ChangeIndicator
+            {
+                IndicatorId = msgData.IndicatorId,
+                Position = msgData.Position,
+                Rotation = msgData.Rotation,
+                Color = msgData.Color
+            };
+
+            var indicator = Indicators.FirstOrDefault(x => x.IndicatorId == msgData.IndicatorId);
+            if (indicator == null)
+            {
+                return false;
+            }
+
+            indicator.Position = msgData.Position;
+            indicator.Rotation = msgData.Rotation;
+            indicator.Color = msgData.Color;
+            return true;
         }
     }
 
@@ -186,7 +215,7 @@ public class Room
         {
             if (Mouse == null)
             {
-                return new List<TcpClient>();
+                return [];
             }
 
             return clients
@@ -223,7 +252,7 @@ public class Room
 
     private bool TryRemoveClient(TcpClient client, out Player leftPlayer)
     {
-        for (int i = 0; i < clients.Length; i++)
+        for (var i = 0; i < clients.Length; i++)
         {
             if (!ReferenceEquals(clients[i], client))
             {
@@ -247,7 +276,7 @@ public class Room
 
     public void Broadcast(JsonPacket packet)
     {
-        for (int i = 0; i < clients.Length; i++)
+        for (var i = 0; i < clients.Length; i++)
         {
             if (clients[i] == null || players[i] == null)
             {
@@ -280,6 +309,58 @@ public class Room
         Magic = CalculateInitialMagic(players.OfType<Player>().Count(), CurrentRound);
     }
 
+    private void ResetIndicators()
+    {
+        Indicators = CreateInitialIndicators(InitialIndicatorCount);
+    }
+
+    private static List<ServerIndicator> CreateInitialIndicators(int count)
+    {
+        var indicators = new List<ServerIndicator>(count);
+        for (var i = 0; i < count; i++)
+        {
+            indicators.Add(new ServerIndicator
+            {
+                IndicatorId = i,
+                Position = CreateRandomIndicatorPosition(),
+                Rotation = CreateRandomIndicatorRotation(),
+                Color = CreateRandomIndicatorColor()
+            });
+        }
+
+        return indicators;
+    }
+
+    private static ServerVector3 CreateRandomIndicatorPosition()
+    {
+        return new ServerVector3
+        {
+            X = Random.Shared.NextSingle() * 20f - 10f,
+            Y = 0.5f,
+            Z = Random.Shared.NextSingle() * 20f - 10f
+        };
+    }
+
+    private static ServerVector3 CreateRandomIndicatorRotation()
+    {
+        return new ServerVector3
+        {
+            X = Random.Shared.NextSingle() * 360f,
+            Y = Random.Shared.NextSingle() * 360f,
+            Z = Random.Shared.NextSingle() * 360f
+        };
+    }
+
+    private static ServerColor CreateRandomIndicatorColor()
+    {
+        return new ServerColor
+        {
+            R = Random.Shared.NextSingle(),
+            G = Random.Shared.NextSingle(),
+            B = Random.Shared.NextSingle(),
+            A = 1f
+        };
+    }
     private static int CalculateInitialMagic(int playerCount, int round)
     {
         return playerCount + round - 1;
@@ -304,6 +385,7 @@ public class StageChangeResult
     public int CurrentFloor { get; set; }
     public int TargetFloor { get; set; }
     public int Magic { get; set; }
+    public List<ServerIndicator> Indicators { get; set; } = new();
     public List<TcpClient> TargetClients { get; set; } = new();
 }
 

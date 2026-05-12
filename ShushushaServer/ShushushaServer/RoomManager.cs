@@ -50,7 +50,7 @@ public class RoomManager
 
     public void JoinRoom(join_room_c2s msgData, TcpClient client)
     {
-        if (TryGetSessionRoom(client, out PlayerSession currentSession, out Room currentRoom))
+        if (TryGetSessionRoom(client, out var currentSession, out var currentRoom))
         {
             if (currentSession.RoomId == msgData.RoomId)
             {
@@ -67,13 +67,13 @@ public class RoomManager
             return;
         }
 
-        if (!rooms.TryGetValue(msgData.RoomId, out Room? room))
+        if (!rooms.TryGetValue(msgData.RoomId, out var room))
         {
             Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.join_room_s2c, new join_room_s2c { ResCode = ResCode.CantFindRoom }));
             return;
         }
 
-        ResCode resCode = room.TryJoin(msgData, client, out Player joinedPlayer, out List<TcpClient> notifyClients);
+        var resCode = room.TryJoin(msgData, client, out var joinedPlayer, out var notifyClients);
         if (resCode != ResCode.Success)
         {
             Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.join_room_s2c, new join_room_s2c { ResCode = resCode }));
@@ -82,7 +82,7 @@ public class RoomManager
 
         try
         {
-            foreach (TcpClient notifyClient in notifyClients)
+            foreach (var notifyClient in notifyClients)
             {
                 Dispatcher.Send(notifyClient, Dispatcher.CreatePacket(MsgId.JoinRoom, new JoinRoom
                 {
@@ -102,7 +102,7 @@ public class RoomManager
 
     public void Ready(ready_c2s msgData, TcpClient client)
     {
-        if (!TryGetSessionRoom(client, out PlayerSession session, out Room room))
+        if (!TryGetSessionRoom(client, out var session, out var room))
         {
             Console.WriteLine("Ready ignored because client has no room session.");
             return;
@@ -136,7 +136,7 @@ public class RoomManager
             return;
         }
 
-        ResCode resCode = room.TryStartGame(session.IdInRoom, GameStartDelay, out GameStartResult gameStartResult);
+        var resCode = room.TryStartGame(session.IdInRoom, GameStartDelay, out GameStartResult gameStartResult);
         if (resCode != ResCode.Success)
         {
             Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.game_start_s2c, new game_start_s2c
@@ -151,7 +151,7 @@ public class RoomManager
             ResCode = ResCode.Success,
         }));
 
-        foreach (TcpClient targetClient in gameStartResult.TargetClients)
+        foreach (var targetClient in gameStartResult.TargetClients)
         {
             var gameStartMsg = Dispatcher.CreatePacket(MsgId.GameStart, new GameStart
             {
@@ -166,9 +166,18 @@ public class RoomManager
 
     public void ChangeIndicator(change_indicator_c2s msgData, TcpClient client)
     {
-        if (!TryGetSessionRoom(client, out PlayerSession session, out Room room))
+        if (!TryGetSessionRoom(client, out _, out var room))
         {
             Console.WriteLine("ChangeIndicator ignored because client has no room session.");
+            return;
+        }
+
+        if (!room.ChangeIndicator(msgData, out var changeIndicator))
+        {
+            Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.change_indicator_s2c, new change_indicator_s2c
+            {
+                ResCode = ResCode.InvalidRoomState
+            }));
             return;
         }
 
@@ -177,17 +186,10 @@ public class RoomManager
             ResCode = ResCode.Success
         }));
 
-        var packet = Dispatcher.CreatePacket(MsgId.ChangeIndicator, new ChangeIndicator
-        {
-            IdInRoom = session.IdInRoom,
-            IndicatorId = msgData.IndicatorId,
-            Position = msgData.Position,
-            Rotation = msgData.Rotation,
-            Color = msgData.Color
-        });
+        var packet = Dispatcher.CreatePacket(MsgId.ChangeIndicator, changeIndicator);
 
         Console.WriteLine($"Broadcast {JsonSerializer.Serialize(packet)} ");
-        foreach (TcpClient sharkClient in room.GetSharkClients())
+        foreach (var sharkClient in room.GetSharkClients())
         {
             Dispatcher.Send(sharkClient, packet);
         }
@@ -205,8 +207,7 @@ public class RoomManager
             return;
         }
 
-        Player leftPlayer;
-        if (!room.TryRemoveClient(client, out leftPlayer, out bool roomIsEmpty))
+        if (!room.TryRemoveClient(client, out var leftPlayer, out var roomIsEmpty))
         {
             return;
         }
@@ -258,8 +259,8 @@ public class RoomManager
 
     private void Tick()
     {
-        DateTime now = DateTime.UtcNow;
-        foreach (Room room in rooms.Values)
+        var now = DateTime.UtcNow;
+        foreach (var room in rooms.Values)
         {
             if (room.TryGetNextStage(now, out GameStage nextStage))
             {
@@ -270,13 +271,14 @@ public class RoomManager
 
     private static void BroadcastStageChange(Room room, GameStage stage)
     {
-        StageChangeResult result = room.ChangeStage(stage, GetStageDuration(stage));
+        var result = room.ChangeStage(stage, GetStageDuration(stage));
         var packet = Dispatcher.CreatePacket(MsgId.ChangeStage, new ChangeStage
         {
             Round = result.Round,
             Stage = result.Stage,
             CurrentFloor = result.CurrentFloor,
-            Magic = result.Magic
+            Magic = result.Magic,
+            Indicators = result.Indicators
         });
 
         Console.WriteLine($"Broadcast {JsonSerializer.Serialize(packet)} ");

@@ -65,7 +65,6 @@ namespace ShushushaServer
 
     public class game_start_c2s
     {
-        public int RoomId { get; set; }
     }
 
     public class game_start_s2c
@@ -117,25 +116,33 @@ namespace ShushushaServer
         public GameStage Stage { get; set; }
         public int CurrentFloor { get; set; }
         public int Magic { get; set; }
+        public List<ServerIndicator> Indicators { get; set; } = new();
     }
 
     public class ChangeIndicator
     {
-        public int IdInRoom { get; set; }
         public int IndicatorId { get; set; }
         public ServerVector3 Position { get; set; } = new();
         public ServerVector3 Rotation { get; set; } = new();
         public ServerColor Color { get; set; } = new();
     }
 
-    public class ServerVector3
+    public class ServerIndicator
+    {
+        public int IndicatorId { get; set; }
+        public ServerVector3 Position { get; set; } = new();
+        public ServerVector3 Rotation { get; set; } = new();
+        public ServerColor Color { get; set; } = new();
+    }
+
+    public struct ServerVector3
     {
         public float X { get; set; }
         public float Y { get; set; }
         public float Z { get; set; }
     }
 
-    public class ServerColor
+    public struct ServerColor
     {
         public float R { get; set; }
         public float G { get; set; }

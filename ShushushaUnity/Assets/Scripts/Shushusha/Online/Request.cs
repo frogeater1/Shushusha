@@ -63,10 +63,7 @@ namespace ShushushaServer
 
         public static async UniTask<game_start_s2c> GameStart()
         {
-            Dispatcher.SendMsg(Dispatcher.CreatePacket(MsgId.game_start_c2s, new game_start_c2s
-            {
-                RoomId = int.Parse(Game.Instance.uilobby.m_房间号.text),
-            }));
+            Dispatcher.SendMsg(Dispatcher.CreatePacket(MsgId.game_start_c2s, new game_start_c2s()));
             var source = tasks[MsgId.game_start_s2c];
             return Dispatcher.GetPacketData<game_start_s2c>(await source.Task);
         }

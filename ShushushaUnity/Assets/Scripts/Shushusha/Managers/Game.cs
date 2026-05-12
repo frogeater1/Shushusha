@@ -23,6 +23,7 @@ public class Game : MonoSingletonBase<Game>
     public int CurrentFloor { get; private set; } = 1;
     public int Magic { get; private set; }
 
+    public GameObject 指示物Prefab;
     public List<GameObject> 指示物列表 = new();
     private GameObject selectedIndicator;
     private CancellationTokenSource stageCountdownCts;
@@ -133,6 +134,7 @@ public class Game : MonoSingletonBase<Game>
         CurrentStage = msgData.Stage;
         SetFloor(msgData.CurrentFloor);
         SetMagic(msgData.Magic);
+        ApplyIndicators(msgData.Indicators);
         uiMain.m_round.SetVar("count", msgData.Round.ToString()).FlushVars();
         uiMain.m_stage.text = $"{msgData.Stage}阶段";
         CancelStageCountdown();
@@ -283,11 +285,6 @@ public class Game : MonoSingletonBase<Game>
 
     public void OnChangeIndicator(ChangeIndicator msgData)
     {
-        if (msgData.IdInRoom == me.IdInRoom)
-        {
-            return;
-        }
-
         selectedIndicator = FindIndicator(msgData.IndicatorId);
         if (selectedIndicator == null)
         {
@@ -341,6 +338,40 @@ public class Game : MonoSingletonBase<Game>
         return 指示物列表[indicatorId];
     }
 
+    private GameObject EnsureIndicator(int indicatorId)
+    {
+        var indicator = FindIndicator(indicatorId);
+        if (indicator != null)
+        {
+            return indicator;
+        }
+
+        if (indicatorId < 0)
+        {
+            return null;
+        }
+
+        if (指示物Prefab == null)
+        {
+            Debug.LogWarning($"无法实例化指示物，缺少指示物Prefab: {indicatorId}");
+            return null;
+        }
+
+        while (指示物列表.Count <= indicatorId)
+        {
+            指示物列表.Add(null);
+        }
+
+        if (指示物列表[indicatorId] == null)
+        {
+            var newIndicator = Instantiate(指示物Prefab);
+            newIndicator.name = $"{指示物Prefab.name}_{indicatorId}";
+            指示物列表[indicatorId] = newIndicator;
+        }
+
+        return 指示物列表[indicatorId];
+    }
+
     private static Color GetIndicatorColor(GameObject indicator)
     {
         var renderer = indicator.GetComponent<Renderer>();
@@ -349,13 +380,37 @@ public class Game : MonoSingletonBase<Game>
 
     private static void ApplyIndicatorChange(GameObject indicator, ChangeIndicator msgData)
     {
-        indicator.transform.position = new Vector3(msgData.Position.X, msgData.Position.Y, msgData.Position.Z);
-        indicator.transform.eulerAngles = new Vector3(msgData.Rotation.X, msgData.Rotation.Y, msgData.Rotation.Z);
+        ApplyIndicatorTransform(indicator, msgData.Position, msgData.Rotation, msgData.Color);
+    }
+
+    private void ApplyIndicators(List<ServerIndicator> indicators)
+    {
+        foreach (var serverIndicator in indicators)
+        {
+            var indicator = FindIndicator(serverIndicator.IndicatorId);
+            if (indicator == null)
+            {
+                indicator = EnsureIndicator(serverIndicator.IndicatorId);
+                if (indicator == null)
+                {
+                    Debug.LogWarning($"未找到指示物: {serverIndicator.IndicatorId}");
+                    continue;
+                }
+            }
+
+            ApplyIndicatorTransform(indicator, serverIndicator.Position, serverIndicator.Rotation, serverIndicator.Color);
+        }
+    }
+
+    private static void ApplyIndicatorTransform(GameObject indicator, ServerVector3 position, ServerVector3 rotation, ServerColor color)
+    {
+        indicator.transform.position = new Vector3(position.X, position.Y, position.Z);
+        indicator.transform.eulerAngles = new Vector3(rotation.X, rotation.Y, rotation.Z);
 
         var renderer = indicator.GetComponent<Renderer>();
         if (renderer != null)
         {
-            renderer.material.color = new Color(msgData.Color.R, msgData.Color.G, msgData.Color.B, msgData.Color.A);
+            renderer.material.color = new Color(color.R, color.G, color.B, color.A);
         }
     }
 
