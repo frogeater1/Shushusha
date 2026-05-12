@@ -33,6 +33,7 @@ public class Server
 
             //接收终端输入
             Task.Run(ConsoleCommand);
+            Task.Run(() => RoomManager.Instance.RunTickLoop(cts.Token));
 
             //循环接收连接请求并开启接收回复线程，没有请求时会阻塞
             while (!cts.Token.IsCancellationRequested)

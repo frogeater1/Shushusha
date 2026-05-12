@@ -15,6 +15,7 @@ public class Room
     public int TargetFloor;
     public int Magic;
     public GameStage Stage = GameStage.None;
+    public DateTime StageEndTimeUtc = DateTime.MaxValue;
     public Player? Mouse;
     public Player? SharkKing;
     public TcpClient?[] clients = new TcpClient[MaxPlayers];
@@ -78,7 +79,7 @@ public class Room
         }
     }
 
-    public ResCode TryStartGame(int idInRoom, out GameStartResult result)
+    public ResCode TryStartGame(int idInRoom, TimeSpan gameStartDelay, out GameStartResult result)
     {
         lock (this)
         {
@@ -127,11 +128,12 @@ public class Room
             CurrentFloor = result.CurrentFloor;
             TargetFloor = result.TargetFloor;
             Stage = GameStage.None;
+            StageEndTimeUtc = DateTime.UtcNow.Add(gameStartDelay);
             return ResCode.Success;
         }
     }
 
-    public StageChangeResult ChangeStage(GameStage stage)
+    public StageChangeResult ChangeStage(GameStage stage, TimeSpan stageDuration)
     {
         lock (this)
         {
@@ -142,6 +144,7 @@ public class Room
             }
 
             Stage = stage;
+            StageEndTimeUtc = DateTime.UtcNow.Add(stageDuration);
             return new StageChangeResult
             {
                 Round = CurrentRound,
@@ -154,11 +157,26 @@ public class Room
         }
     }
 
-    public bool IsCurrentStage(GameStage stage, int round)
+    public bool TryGetNextStage(DateTime now, out GameStage nextStage)
     {
         lock (this)
         {
-            return Stage == stage && CurrentRound == round;
+            nextStage = GameStage.None;
+            if (State != RoomState.Playing || now < StageEndTimeUtc)
+            {
+                return false;
+            }
+
+            nextStage = Stage switch
+            {
+                GameStage.None => GameStage.Hide,
+                GameStage.Hide => GameStage.Kill,
+                GameStage.Kill => GameStage.Hide,
+                _ => GameStage.None
+            };
+
+            StageEndTimeUtc = DateTime.MaxValue;
+            return nextStage != GameStage.None;
         }
     }
 

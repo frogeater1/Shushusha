@@ -40,19 +40,19 @@ public static partial class Dispatcher
                 switch (packet.MsgId)
                 {
                     case MsgId.create_room_c2s:
-                        RoomManager.CreateRoom(GetPacketData<create_room_c2s>(packet)!, client);
+                        RoomManager.Instance.CreateRoom(GetPacketData<create_room_c2s>(packet)!, client);
                         break;
                     case MsgId.join_room_c2s:
-                        RoomManager.JoinRoom(GetPacketData<join_room_c2s>(packet)!, client);
+                        RoomManager.Instance.JoinRoom(GetPacketData<join_room_c2s>(packet)!, client);
                         break;
                     case MsgId.ready_c2s:
-                        RoomManager.Ready(GetPacketData<ready_c2s>(packet), client);
+                        RoomManager.Instance.Ready(GetPacketData<ready_c2s>(packet), client);
                         break;
                     case MsgId.game_start_c2s:
-                        RoomManager.GameStart(client);
+                        RoomManager.Instance.GameStart(client);
                         break;
                     case MsgId.change_indicator_c2s:
-                        RoomManager.ChangeIndicator(GetPacketData<change_indicator_c2s>(packet)!, client);
+                        RoomManager.Instance.ChangeIndicator(GetPacketData<change_indicator_c2s>(packet)!, client);
                         break;
                 }
             }
@@ -67,7 +67,7 @@ public static partial class Dispatcher
         }
         finally
         {
-            RoomManager.RemoveClient(client);
+            RoomManager.Instance.RemoveClient(client);
             client.Close();
             RemoveSendLock(client);
         }

@@ -6,14 +6,18 @@ namespace ShushushaServer;
 
 public class RoomManager
 {
-    private const int HideStageSeconds = 30;
-    private const int KillStageSeconds = 30;
+    public static RoomManager Instance { get; } = new();
 
-    public static ConcurrentDictionary<int, Room> rooms = new();
-    private static readonly ConcurrentDictionary<TcpClient, PlayerSession> playerSessions = new();
-    private static int nextRoomId;
+    private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(100);
+    private static readonly TimeSpan GameStartDelay = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan HideStageDuration = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan KillStageDuration = TimeSpan.FromSeconds(30);
 
-    public static void CreateRoom(create_room_c2s msgData, TcpClient client)
+    private readonly ConcurrentDictionary<int, Room> rooms = new();
+    private readonly ConcurrentDictionary<TcpClient, PlayerSession> playerSessions = new();
+    private int nextRoomId;
+
+    public void CreateRoom(create_room_c2s msgData, TcpClient client)
     {
         if (TryGetSessionRoom(client, out PlayerSession currentSession, out _))
         {
@@ -44,7 +48,7 @@ public class RoomManager
         }
     }
 
-    public static void JoinRoom(join_room_c2s msgData, TcpClient client)
+    public void JoinRoom(join_room_c2s msgData, TcpClient client)
     {
         if (TryGetSessionRoom(client, out PlayerSession currentSession, out Room currentRoom))
         {
@@ -96,7 +100,7 @@ public class RoomManager
         }
     }
 
-    public static void Ready(ready_c2s msgData, TcpClient client)
+    public void Ready(ready_c2s msgData, TcpClient client)
     {
         if (!TryGetSessionRoom(client, out PlayerSession session, out Room room))
         {
@@ -124,7 +128,7 @@ public class RoomManager
         room.Broadcast(msg);
     }
 
-    public static void GameStart(TcpClient client)
+    public void GameStart(TcpClient client)
     {
         if (!TryGetSessionRoom(client, out PlayerSession session, out Room room))
         {
@@ -132,7 +136,7 @@ public class RoomManager
             return;
         }
 
-        ResCode resCode = room.TryStartGame(session.IdInRoom, out GameStartResult gameStartResult);
+        ResCode resCode = room.TryStartGame(session.IdInRoom, GameStartDelay, out GameStartResult gameStartResult);
         if (resCode != ResCode.Success)
         {
             Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.game_start_s2c, new game_start_s2c
@@ -158,15 +162,9 @@ public class RoomManager
             Console.WriteLine($"Send {JsonSerializer.Serialize(gameStartMsg)} ");
             Dispatcher.Send(targetClient, gameStartMsg);
         }
-
-        Task.Run(async () =>
-        {
-            await Task.Delay(TimeSpan.FromSeconds(2));
-            BroadcastStageChange(room, GameStage.Hide);
-        });
     }
 
-    public static void ChangeIndicator(change_indicator_c2s msgData, TcpClient client)
+    public void ChangeIndicator(change_indicator_c2s msgData, TcpClient client)
     {
         if (!TryGetSessionRoom(client, out PlayerSession session, out Room room))
         {
@@ -195,7 +193,7 @@ public class RoomManager
         }
     }
 
-    public static void RemoveClient(TcpClient client)
+    public void RemoveClient(TcpClient client)
     {
         if (!playerSessions.TryRemove(client, out PlayerSession? session))
         {
@@ -228,7 +226,7 @@ public class RoomManager
         Console.WriteLine($"Player uid={leftPlayer.Uid}, idInRoom={leftPlayer.IdInRoom} left room {room.RoomId}.");
     }
 
-    private static void RegisterClient(TcpClient client, int roomId, int idInRoom)
+    private void RegisterClient(TcpClient client, int roomId, int idInRoom)
     {
         playerSessions[client] = new PlayerSession(roomId, idInRoom);
     }
@@ -243,9 +241,36 @@ public class RoomManager
         }));
     }
 
+    public async Task RunTickLoop(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TickInterval);
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                Tick();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private void Tick()
+    {
+        DateTime now = DateTime.UtcNow;
+        foreach (Room room in rooms.Values)
+        {
+            if (room.TryGetNextStage(now, out GameStage nextStage))
+            {
+                BroadcastStageChange(room, nextStage);
+            }
+        }
+    }
+
     private static void BroadcastStageChange(Room room, GameStage stage)
     {
-        StageChangeResult result = room.ChangeStage(stage);
+        StageChangeResult result = room.ChangeStage(stage, GetStageDuration(stage));
         var packet = Dispatcher.CreatePacket(MsgId.ChangeStage, new ChangeStage
         {
             Round = result.Round,
@@ -259,47 +284,19 @@ public class RoomManager
         {
             Dispatcher.Send(targetClient, packet);
         }
-
-        if (stage == GameStage.Hide)
-        {
-            ScheduleHideStageEnd(room, result.Round);
-        }
-        else if (stage == GameStage.Kill)
-        {
-            ScheduleKillStageEnd(room, result.Round);
-        }
     }
 
-    private static void ScheduleHideStageEnd(Room room, int round)
+    private static TimeSpan GetStageDuration(GameStage stage)
     {
-        Task.Run(async () =>
+        return stage switch
         {
-            await Task.Delay(TimeSpan.FromSeconds(HideStageSeconds));
-            if (!room.IsCurrentStage(GameStage.Hide, round))
-            {
-                return;
-            }
-
-            BroadcastStageChange(room, GameStage.Kill);
-        });
+            GameStage.Hide => HideStageDuration,
+            GameStage.Kill => KillStageDuration,
+            _ => TimeSpan.Zero
+        };
     }
 
-    
-    private static void ScheduleKillStageEnd(Room room, int round)
-    {
-        Task.Run(async () =>
-        {
-            await Task.Delay(TimeSpan.FromSeconds(KillStageSeconds));
-            if (!room.IsCurrentStage(GameStage.Kill, round))
-            {
-                return;
-            }
-
-            BroadcastStageChange(room, GameStage.Hide);
-        });
-    }
-
-    private static bool TryGetSessionRoom(TcpClient client, out PlayerSession session, out Room room)
+    private bool TryGetSessionRoom(TcpClient client, out PlayerSession session, out Room room)
     {
         if (!playerSessions.TryGetValue(client, out PlayerSession? foundSession))
         {
