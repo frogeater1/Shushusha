@@ -79,6 +79,7 @@ namespace ShushushaServer
         public int IdInRoom { get; set; }
         public int IndicatorId { get; set; }
         public ServerVector3 Position { get; set; } = new();
+        public ServerVector3 Rotation { get; set; } = new();
         public ServerColor Color { get; set; } = new();
     }
 
@@ -123,6 +124,7 @@ namespace ShushushaServer
         public int IdInRoom { get; set; }
         public int IndicatorId { get; set; }
         public ServerVector3 Position { get; set; } = new();
+        public ServerVector3 Rotation { get; set; } = new();
         public ServerColor Color { get; set; } = new();
     }
 

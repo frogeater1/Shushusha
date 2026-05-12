@@ -181,6 +181,7 @@ public class RoomManager
             IdInRoom = session.IdInRoom,
             IndicatorId = msgData.IndicatorId,
             Position = msgData.Position,
+            Rotation = msgData.Rotation,
             Color = msgData.Color
         });
 

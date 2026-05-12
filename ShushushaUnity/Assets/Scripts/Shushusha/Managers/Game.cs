@@ -272,7 +272,8 @@ public class Game : MonoSingletonBase<Game>
             return;
         }
 
-        var msgData = await Request.ChangeIndicator(indicatorId, indicator.transform.position, GetIndicatorColor(indicator));
+        var msgData = await Request.ChangeIndicator(indicatorId, indicator.transform.position,
+            indicator.transform.eulerAngles, GetIndicatorColor(indicator));
         if (msgData.ResCode != ResCode.Success)
         {
             Debug.LogWarning($"发送指示物变化失败: {msgData.ResCode}");
@@ -349,6 +350,7 @@ public class Game : MonoSingletonBase<Game>
     private static void ApplyIndicatorChange(GameObject indicator, ChangeIndicator msgData)
     {
         indicator.transform.position = new Vector3(msgData.Position.X, msgData.Position.Y, msgData.Position.Z);
+        indicator.transform.eulerAngles = new Vector3(msgData.Rotation.X, msgData.Rotation.Y, msgData.Rotation.Z);
 
         var renderer = indicator.GetComponent<Renderer>();
         if (renderer != null)

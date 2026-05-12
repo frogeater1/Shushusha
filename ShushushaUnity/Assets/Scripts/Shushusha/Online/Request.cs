@@ -71,7 +71,7 @@ namespace ShushushaServer
             return Dispatcher.GetPacketData<game_start_s2c>(await source.Task);
         }
 
-        public static async UniTask<change_indicator_s2c> ChangeIndicator(int indicatorId, Vector3 position, Color color)
+        public static async UniTask<change_indicator_s2c> ChangeIndicator(int indicatorId, Vector3 position, Vector3 rotation, Color color)
         {
             Dispatcher.SendMsg(Dispatcher.CreatePacket(MsgId.change_indicator_c2s, new change_indicator_c2s
             {
@@ -83,6 +83,12 @@ namespace ShushushaServer
                     X = position.x,
                     Y = position.y,
                     Z = position.z
+                },
+                Rotation = new ServerVector3
+                {
+                    X = rotation.x,
+                    Y = rotation.y,
+                    Z = rotation.z
                 },
                 Color = new ServerColor
                 {
