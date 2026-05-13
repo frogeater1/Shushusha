@@ -19,7 +19,7 @@ public class Room
     public DateTime StageEndTimeUtc = DateTime.MaxValue;
     private readonly List<ServerIndicator> initialIndicators;
     private readonly Dictionary<int, PlayerIndicatorChange> playerIndicatorChanges = new();
-    private long nextIndicatorChangeSequence;
+    private int nextIndicatorChangeSequence;
     public List<ServerIndicator> Indicators;
     public Player? Mouse;
     public Player? SharkKing;
@@ -519,7 +519,7 @@ public class PlayerIndicatorChange
 {
     public int IndicatorId { get; set; }
     public IndicatorChangeKind Kind { get; set; }
-    public long Sequence { get; set; }
+    public int Sequence { get; set; }
     public ServerVector3 Position { get; set; }
     public ServerVector3 Rotation { get; set; }
     public ServerColor Color { get; set; }
