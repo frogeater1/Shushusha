@@ -141,13 +141,20 @@ public class Room
         }
     }
 
-    public StageChangeResult ChangeStage(GameStage stage, TimeSpan stageDuration)
+    public bool TryChangeStage(GameStage stage, TimeSpan stageDuration, out StageChangeResult stageResult, out GameResult gameResult)
     {
         lock (this)
         {
+            stageResult = null!;
+            gameResult = null!;
+
             if (Stage == GameStage.Kill && stage == GameStage.Hide)
             {
                 SettleKillStage();
+                if (TryCreateGameResultLocked(true, out gameResult))
+                {
+                    return false;
+                }
             }
 
             if (stage == GameStage.Observe || (stage == GameStage.Hide && Stage != GameStage.Observe))
@@ -160,7 +167,7 @@ public class Room
 
             Stage = stage;
             StageEndTimeUtc = DateTime.UtcNow.Add(stageDuration);
-            return new StageChangeResult
+            stageResult = new StageChangeResult
             {
                 Round = CurrentRound,
                 Stage = Stage,
@@ -172,6 +179,7 @@ public class Room
                 Players = GetPlayersSnapshot(),
                 TargetClients = clients.Where(x => x != null).Select(x => x!).ToList()
             };
+            return true;
         }
     }
 
@@ -274,6 +282,14 @@ public class Room
 
             Magic += 2 * killedSharks.Count;
             return ResCode.Success;
+        }
+    }
+
+    public bool TryCreateEarlyGameResult(out GameResult gameResult)
+    {
+        lock (this)
+        {
+            return TryCreateGameResultLocked(false, out gameResult);
         }
     }
 
@@ -387,7 +403,12 @@ public class Room
 
     public void BroadcastStageChange(GameStage stage, TimeSpan stageDuration)
     {
-        var result = ChangeStage(stage, stageDuration);
+        if (!TryChangeStage(stage, stageDuration, out var result, out var gameResult))
+        {
+            BroadcastGameResult(gameResult);
+            return;
+        }
+
         var packet = Dispatcher.CreatePacket(MsgId.ChangeStage, new ChangeStage
         {
             Round = result.Round,
@@ -404,6 +425,13 @@ public class Room
         {
             Dispatcher.Send(targetClient, packet);
         }
+    }
+
+    public void BroadcastGameResult(GameResult gameResult)
+    {
+        var packet = Dispatcher.CreatePacket(MsgId.GameResult, gameResult);
+        Console.WriteLine($"Broadcast {JsonSerializer.Serialize(packet)} ");
+        Broadcast(packet);
     }
 
     private static Player CreateRoomPlayer(int uid, int idInRoom)
@@ -423,7 +451,69 @@ public class Room
 
     private void SettleKillStage()
     {
-        CurrentFloor += Magic;
+        CurrentFloor += Math.Max(Magic, 0);
+    }
+
+    private bool TryCreateGameResultLocked(bool includeRoundLimit, out GameResult gameResult)
+    {
+        gameResult = null!;
+        if (State != RoomState.Playing)
+        {
+            return false;
+        }
+
+        var aliveSharkCount = GetAliveSharkCountLocked();
+        if (aliveSharkCount == 0)
+        {
+            gameResult = CreateGameResult(WinningSide.Mouse, aliveSharkCount);
+            FinishGame();
+            return true;
+        }
+
+        if (includeRoundLimit && CurrentRound >= GetMaxRoundLocked())
+        {
+            var winner = CurrentFloor >= TargetFloor ? WinningSide.Mouse : WinningSide.Shark;
+            gameResult = CreateGameResult(winner, aliveSharkCount);
+            FinishGame();
+            return true;
+        }
+
+        return false;
+    }
+
+    private GameResult CreateGameResult(WinningSide winner, int aliveSharkCount)
+    {
+        return new GameResult
+        {
+            Winner = winner,
+            CurrentFloor = CurrentFloor,
+            TargetFloor = TargetFloor,
+            AliveSharkCount = aliveSharkCount
+        };
+    }
+
+    private int GetAliveSharkCountLocked()
+    {
+        if (Mouse == null)
+        {
+            return 0;
+        }
+
+        return players
+            .OfType<Player>()
+            .Count(player => player.IdInRoom != Mouse.IdInRoom && !player.IsDead);
+    }
+
+    private int GetMaxRoundLocked()
+    {
+        return players.OfType<Player>().Count();
+    }
+
+    private void FinishGame()
+    {
+        State = RoomState.Finished;
+        Stage = GameStage.None;
+        StageEndTimeUtc = DateTime.MaxValue;
     }
 
     private void ResetIndicators()
@@ -609,7 +699,8 @@ public class Room
 public enum RoomState
 {
     Waiting,
-    Playing
+    Playing,
+    Finished
 }
 
 public class StageChangeResult

@@ -70,6 +70,9 @@ namespace ShushushaServer
                     case MsgId.PlayerDied:
                         Game.Instance.OnPlayerDied(GetPacketData<PlayerDied>(msg));
                         break;
+                    case MsgId.GameResult:
+                        Game.Instance.OnGameResult(GetPacketData<GameResult>(msg));
+                        break;
                     // case KeepAlive:
                     //     SendMsg(new KeepAlive
                     //     {

@@ -30,6 +30,7 @@ namespace ShushushaServer
         Ready = 2003,
         ChangeStage = 2004,
         ChangeIndicator = 2005,
+        GameResult = 2007,
     }
 
     public class create_room_s2c
@@ -142,6 +143,14 @@ namespace ShushushaServer
         public List<Player> KilledSharks { get; set; } = new();
     }
 
+    public class GameResult
+    {
+        public WinningSide Winner { get; set; }
+        public int CurrentFloor { get; set; }
+        public int TargetFloor { get; set; }
+        public int AliveSharkCount { get; set; }
+    }
+
     public enum IndicatorChangeKind
     {
         Position = 0,
@@ -204,5 +213,11 @@ namespace ShushushaServer
         Observe = 1,
         Hide = 2,
         Kill = 3
+    }
+
+    public enum WinningSide
+    {
+        Mouse = 1,
+        Shark = 2
     }
 }

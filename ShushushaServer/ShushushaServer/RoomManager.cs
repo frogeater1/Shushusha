@@ -222,6 +222,11 @@ public class RoomManager
             });
             Console.WriteLine($"Broadcast {JsonSerializer.Serialize(playerDiedPacket)} ");
             room.Broadcast(playerDiedPacket);
+
+            if (room.TryCreateEarlyGameResult(out var gameResult))
+            {
+                room.BroadcastGameResult(gameResult);
+            }
         }
 
         if (resCode == ResCode.KillSharkFailed)

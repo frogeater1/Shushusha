@@ -206,6 +206,22 @@ public class Game : MonoSingletonBase<Game>
         uilobby.ShowTip(tip);
     }
 
+    public void OnGameResult(GameResult msgData)
+    {
+        HideIndicatorMenu();
+        CancelStageCountdown();
+        RestoreBlackout();
+
+        CurrentStage = GameStage.None;
+        SetFloor(msgData.CurrentFloor);
+        SetMagic(0);
+        uiMain.m_stage.text = msgData.Winner == WinningSide.Mouse ? "鼠胜利" : "鲨胜利";
+        uiMain.m_倒计时.text = string.Empty;
+
+        var winnerText = msgData.Winner == WinningSide.Mouse ? "鼠" : "鲨";
+        uilobby.ShowTip($"{winnerText}胜利\n当前楼层: {msgData.CurrentFloor}\n目标楼层: {msgData.TargetFloor}\n存活鲨玩家: {msgData.AliveSharkCount}");
+    }
+
     private void SetFloor(int currentFloor)
     {
         CurrentFloor = currentFloor;
