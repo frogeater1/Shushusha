@@ -4,10 +4,10 @@ using System.Linq;
 using System.Threading;
 using System.Text.Json;
 using Cysharp.Threading.Tasks;
+using FairyGUI;
 using ShushushaServer;
 using UI;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using Utils;
 using Unity.Multiplayer.PlayMode;
@@ -25,8 +25,10 @@ public class Game : MonoSingletonBase<Game>
 
     public GameObject 指示物Prefab;
     public List<GameObject> 指示物列表 = new();
-    private GameObject selectedIndicator;
+    private UI_Menu indicatorMenu;
     private CancellationTokenSource stageCountdownCts;
+
+    private const float IndicatorPositionRange = 10f;
 
     protected override void Awake()
     {
@@ -63,7 +65,6 @@ public class Game : MonoSingletonBase<Game>
     private void Update()
     {
         Dispatcher.Distribute();
-        TryPlaceHideStageIndicator();
     }
 
 
@@ -229,31 +230,25 @@ public class Game : MonoSingletonBase<Game>
         stageCountdownCts?.Cancel();
     }
 
-    private void TryPlaceHideStageIndicator()
+    public void OnIndicatorClicked(GameObject target)
     {
         if (CurrentStage != GameStage.Hide || Identity == PlayerIdentity.Mouse)
         {
             return;
         }
 
-        if (Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame || IsPointerOnUi())
+        if (IsPointerOnUi())
         {
             return;
         }
 
-        var mainCamera = Camera.main;
-        if (mainCamera == null)
+        var indicator = FindIndicator(target);
+        if (indicator == null)
         {
             return;
         }
 
-        var ray = mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
-        if (!TryGetIndicator(ray, out var indicator))
-        {
-            return;
-        }
-
-        ChangeIndicator(indicator).Forget();
+        ShowIndicatorMenu(indicator);
     }
 
     private async UniTaskVoid ChangeIndicator(GameObject indicator)
@@ -263,7 +258,6 @@ public class Game : MonoSingletonBase<Game>
             return;
         }
 
-        selectedIndicator = indicator;
         var indicatorId = 指示物列表.IndexOf(indicator);
         if (indicatorId < 0)
         {
@@ -280,43 +274,93 @@ public class Game : MonoSingletonBase<Game>
         }
     }
 
+    private void ShowIndicatorMenu(GameObject indicator)
+    {
+        if (indicatorMenu == null)
+        {
+            indicatorMenu = UI_Menu.CreateInstance();
+            indicatorMenu.m_menu.onClickItem.Set(OnIndicatorMenuItemClicked);
+        }
+
+        if (indicatorMenu.parent == null)
+        {
+            GRoot.inst.AddChild(indicatorMenu);
+        }
+
+        indicatorMenu.data = indicator;
+        var position = GRoot.inst.GlobalToLocal(Stage.inst.touchPosition);
+        if (position.y > GRoot.inst.height - 300f)
+        {
+            position.y -= 300f;
+        }
+
+        indicatorMenu.SetXY(position.x, position.y);
+        indicatorMenu.visible = true;
+    }
+
+    private void OnIndicatorMenuItemClicked(EventContext context)
+    {
+        if (indicatorMenu.data is not GameObject indicator)
+        {
+            return;
+        }
+
+        var itemIndex = context.data is GObject item ? indicatorMenu.m_menu.GetChildIndex(item) : -1;
+        if (!ApplyIndicatorMenuAction(indicator, itemIndex))
+        {
+            return;
+        }
+
+        indicatorMenu.visible = false;
+        indicatorMenu.data = null;
+        ChangeIndicator(indicator).Forget();
+    }
+
+    private static bool ApplyIndicatorMenuAction(GameObject indicator, int itemIndex)
+    {
+        switch (itemIndex)
+        {
+            case 0:
+                indicator.transform.position = new Vector3(
+                    UnityEngine.Random.Range(-IndicatorPositionRange, IndicatorPositionRange),
+                    indicator.transform.position.y,
+                    UnityEngine.Random.Range(-IndicatorPositionRange, IndicatorPositionRange));
+                return true;
+            case 1:
+                SetIndicatorColor(indicator, new Color(
+                    UnityEngine.Random.value,
+                    UnityEngine.Random.value,
+                    UnityEngine.Random.value,
+                    1f));
+                return true;
+            case 2:
+                indicator.transform.eulerAngles = new Vector3(
+                    UnityEngine.Random.Range(0f, 360f),
+                    UnityEngine.Random.Range(0f, 360f),
+                    UnityEngine.Random.Range(0f, 360f));
+                return true;
+            default:
+                Debug.LogWarning($"未知指示物菜单选项: {itemIndex}");
+                return false;
+        }
+    }
+
     public void OnChangeIndicator(ChangeIndicator msgData)
     {
-        selectedIndicator = FindIndicator(msgData.IndicatorId);
-        if (selectedIndicator == null)
+        var indicator = FindIndicator(msgData.IndicatorId);
+        if (indicator == null)
         {
             Debug.LogWarning($"未找到指示物: {msgData.IndicatorId}");
             return;
         }
 
-        ApplyIndicatorChange(selectedIndicator, msgData);
+        ApplyIndicatorChange(indicator, msgData);
     }
 
     private static bool IsPointerOnUi()
     {
         var touchTarget = FairyGUI.GRoot.inst.touchTarget;
         return touchTarget != null && touchTarget != FairyGUI.GRoot.inst;
-    }
-
-    private bool TryGetIndicator(Ray ray, out GameObject indicator)
-    {
-        foreach (var hit in Physics.RaycastAll(ray).OrderBy(x => x.distance))
-        {
-            if (IsUiObject(hit.collider.gameObject))
-            {
-                continue;
-            }
-
-            var clickedIndicator = FindIndicator(hit.collider.gameObject);
-            if (clickedIndicator != null)
-            {
-                indicator = clickedIndicator;
-                return true;
-            }
-        }
-
-        indicator = null;
-        return false;
     }
 
     private GameObject FindIndicator(GameObject target)
@@ -363,6 +407,11 @@ public class Game : MonoSingletonBase<Game>
         {
             var newIndicator = Instantiate(指示物Prefab);
             newIndicator.name = $"{指示物Prefab.name}_{indicatorId}";
+            if (newIndicator.GetComponent<Indicator>() == null)
+            {
+                newIndicator.AddComponent<Indicator>();
+            }
+
             指示物列表[indicatorId] = newIndicator;
         }
 
@@ -373,6 +422,15 @@ public class Game : MonoSingletonBase<Game>
     {
         var renderer = indicator.GetComponent<Renderer>();
         return renderer != null ? renderer.material.color : Color.white;
+    }
+
+    private static void SetIndicatorColor(GameObject indicator, Color color)
+    {
+        var renderer = indicator.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            renderer.material.color = color;
+        }
     }
 
     private static void ApplyIndicatorChange(GameObject indicator, ChangeIndicator msgData)

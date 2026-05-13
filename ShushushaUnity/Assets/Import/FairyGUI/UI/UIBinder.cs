@@ -16,6 +16,7 @@ namespace UI
             UIObjectFactory.SetPackageItemExtension(UI_shark_avatar_game.URL, typeof(UI_shark_avatar_game));
             UIObjectFactory.SetPackageItemExtension(UI_Lobby.URL, typeof(UI_Lobby));
             UIObjectFactory.SetPackageItemExtension(UI_shark_avatar_lobby.URL, typeof(UI_shark_avatar_lobby));
+            UIObjectFactory.SetPackageItemExtension(UI_Menu.URL, typeof(UI_Menu));
         }
     }
 }
