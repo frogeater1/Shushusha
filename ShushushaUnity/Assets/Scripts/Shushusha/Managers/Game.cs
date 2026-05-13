@@ -25,7 +25,7 @@ public class Game : MonoSingletonBase<Game>
 
     public GameObject 指示物Prefab;
     public List<GameObject> 指示物列表 = new();
-    private UI_Menu indicatorMenu;
+    private Window indicatorMenuWindow;
     private CancellationTokenSource stageCountdownCts;
 
     private const float IndicatorPositionRange = 10f;
@@ -276,43 +276,56 @@ public class Game : MonoSingletonBase<Game>
 
     private void ShowIndicatorMenu(GameObject indicator)
     {
-        if (indicatorMenu == null)
+        if (indicatorMenuWindow == null)
         {
-            indicatorMenu = UI_Menu.CreateInstance();
-            indicatorMenu.m_menu.onClickItem.Set(OnIndicatorMenuItemClicked);
+            var menu = UI_Menu.CreateInstance();
+            menu.m_menu.onClickItem.Set(OnIndicatorMenuItemClicked);
+            indicatorMenuWindow = new Window
+            {
+                modal = true,
+                contentPane = menu
+            };
         }
 
-        if (indicatorMenu.parent == null)
-        {
-            GRoot.inst.AddChild(indicatorMenu);
-        }
-
-        indicatorMenu.data = indicator;
+        indicatorMenuWindow.contentPane.data = indicator;
         var position = GRoot.inst.GlobalToLocal(Stage.inst.touchPosition);
         if (position.y > GRoot.inst.height - 300f)
         {
             position.y -= 300f;
         }
 
-        indicatorMenu.SetXY(position.x, position.y);
-        indicatorMenu.visible = true;
+        indicatorMenuWindow.Show();
+        indicatorMenuWindow.SetXY(position.x, position.y);
+        GRoot.inst.modalLayer.onClick.Set(HideIndicatorMenu);
     }
 
-    private void OnIndicatorMenuItemClicked(EventContext context)
+    private void HideIndicatorMenu()
     {
-        if (indicatorMenu.data is not GameObject indicator)
+        if (indicatorMenuWindow == null)
         {
             return;
         }
 
-        var itemIndex = context.data is GObject item ? indicatorMenu.m_menu.GetChildIndex(item) : -1;
+        indicatorMenuWindow.contentPane.data = null;
+        GRoot.inst.modalLayer.onClick.Set((EventCallback0)null);
+        indicatorMenuWindow.Hide();
+    }
+
+    private void OnIndicatorMenuItemClicked(EventContext context)
+    {
+        if (indicatorMenuWindow?.contentPane is not UI_Menu menu ||
+            menu.data is not GameObject indicator)
+        {
+            return;
+        }
+
+        var itemIndex = context.data is GObject item ? menu.m_menu.GetChildIndex(item) : -1;
         if (!ApplyIndicatorMenuAction(indicator, itemIndex))
         {
             return;
         }
 
-        indicatorMenu.visible = false;
-        indicatorMenu.data = null;
+        HideIndicatorMenu();
         ChangeIndicator(indicator).Forget();
     }
 
