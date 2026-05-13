@@ -25,6 +25,7 @@ namespace ShushushaServer
         kill_shark_s2c = 1012,
         JoinRoom = 2000, //这个是其他人加入房间时服务端主动发的
         GameStart = 2001,
+        PlayerDied = 2006,
         PlayerLeft = 2002,
         Ready = 2003,
         ChangeStage = 2004,
@@ -128,11 +129,17 @@ namespace ShushushaServer
         public int CurrentFloor { get; set; }
         public int Magic { get; set; }
         public List<ServerIndicator> Indicators { get; set; } = new();
+        public List<Player> Players { get; set; } = new();
     }
 
     public class ChangeIndicator
     {
         public List<ServerIndicator> Indicators { get; set; } = new();
+    }
+
+    public class PlayerDied
+    {
+        public List<Player> KilledSharks { get; set; } = new();
     }
 
     public enum IndicatorChangeKind
@@ -172,6 +179,7 @@ namespace ShushushaServer
         public int IdInRoom { get; set; }
 
         public bool Ready { get; set; }
+        public bool IsDead { get; set; }
     }
 
     public enum ResCode
@@ -186,7 +194,8 @@ namespace ShushushaServer
         NotAllPlayersReady = 7,
         InvalidRoomState = 8,
         InvalidRoomStage = 9,
-        KillSharkFailed = 10
+        KillSharkFailed = 10,
+        PlayerDisabled = 11
     }
 
     public enum GameStage

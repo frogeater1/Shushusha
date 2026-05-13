@@ -214,6 +214,16 @@ public class RoomManager
             KilledSharks = killedSharks
         }));
 
+        if (resCode == ResCode.Success && killedSharks.Count > 0)
+        {
+            var playerDiedPacket = Dispatcher.CreatePacket(MsgId.PlayerDied, new PlayerDied
+            {
+                KilledSharks = killedSharks
+            });
+            Console.WriteLine($"Broadcast {JsonSerializer.Serialize(playerDiedPacket)} ");
+            room.Broadcast(playerDiedPacket);
+        }
+
         if (resCode == ResCode.KillSharkFailed)
         {
             room.BroadcastStageChange(GameStage.Hide, GetStageDuration(GameStage.Hide));

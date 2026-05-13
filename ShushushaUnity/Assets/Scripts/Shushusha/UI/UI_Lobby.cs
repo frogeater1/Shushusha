@@ -258,5 +258,22 @@ namespace UI
 
             return -1;
         }
+
+        public void UpdateMembers(System.Collections.Generic.List<Player> players)
+        {
+            foreach (var player in players)
+            {
+                var memberIndex = FindMemberIndex(player.IdInRoom);
+                if (memberIndex >= 0)
+                {
+                    var member = (UI_shark_avatar_lobby)m_memberlist.GetChildAt(memberIndex);
+                    member.icon = UIPackage.GetItemURL("UI", "玩家头像");
+                    member.m_准备.visible = player.Ready;
+                    member.m_id_in_room.text = player.IdInRoom.ToString();
+                    // Set avatar color based on death status
+                    member.color = player.IsDead ? new Color(0.5f, 0.5f, 0.5f) : Color.white;
+                }
+            }
+        }
     }
 }

@@ -131,6 +131,16 @@ public class Game : MonoSingletonBase<Game>
     {
         HideIndicatorMenu();
         CurrentStage = msgData.Stage;
+
+        // Update player states from server
+        var myPlayer = msgData.Players.FirstOrDefault(p => p.Uid == me.Uid);
+        if (myPlayer != null)
+        {
+            me.IsDead = myPlayer.IsDead;
+        }
+
+        uilobby.UpdateMembers(msgData.Players);
+
         SetFloor(msgData.CurrentFloor);
         SetMagic(msgData.Magic);
         ApplyIndicators(msgData.Indicators);
@@ -140,6 +150,11 @@ public class Game : MonoSingletonBase<Game>
         if (msgData.Stage != GameStage.Hide)
         {
             RestoreBlackout();
+        }
+
+        if (msgData.Stage == GameStage.Hide && Identity != PlayerIdentity.Mouse && me.IsDead)
+        {
+            uilobby.ShowTip("你已被查鲨，2回合内无法操作指示物");
         }
 
         if (msgData.StageSeconds > 0)
@@ -171,6 +186,24 @@ public class Game : MonoSingletonBase<Game>
             default:
                 break;
         }
+    }
+
+    public void OnPlayerDied(PlayerDied msgData)
+    {
+        if (msgData.KilledSharks.Count == 0)
+        {
+            return;
+        }
+
+        var ids = string.Join(",", msgData.KilledSharks.Select(x => $"玩家{x.IdInRoom}"));
+        var tip = $"{ids}死了";
+        if (msgData.KilledSharks.Any(x => x.IdInRoom == me.IdInRoom))
+        {
+            me.IsDead = true;
+            tip += "\n你2回合内无法操作指示物";
+        }
+
+        uilobby.ShowTip(tip);
     }
 
     private void SetFloor(int currentFloor)
@@ -241,6 +274,12 @@ public class Game : MonoSingletonBase<Game>
             return;
         }
 
+        if (CurrentStage == GameStage.Hide && Identity != PlayerIdentity.Mouse && me.IsDead)
+        {
+            uilobby.ShowTip("你当前无法操作指示物");
+            return;
+        }
+
         if (CurrentStage == GameStage.Hide && Identity == PlayerIdentity.Mouse)
         {
             return;
@@ -280,6 +319,10 @@ public class Game : MonoSingletonBase<Game>
             if (msgData.ResCode == ResCode.InvalidRoomStage)
             {
                 uilobby.ShowTip("当前阶段不能改变指示物");
+            }
+            else if (msgData.ResCode == ResCode.PlayerDisabled)
+            {
+                uilobby.ShowTip("你当前无法操作指示物");
             }
 
             Debug.LogWarning($"发送指示物变化失败: {msgData.ResCode}");

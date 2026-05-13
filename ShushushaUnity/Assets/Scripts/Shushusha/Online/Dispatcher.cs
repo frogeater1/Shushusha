@@ -67,6 +67,9 @@ namespace ShushushaServer
                     case MsgId.ChangeIndicator:
                         Game.Instance.OnChangeIndicator(GetPacketData<ChangeIndicator>(msg));
                         break;
+                    case MsgId.PlayerDied:
+                        Game.Instance.OnPlayerDied(GetPacketData<PlayerDied>(msg));
+                        break;
                     // case KeepAlive:
                     //     SendMsg(new KeepAlive
                     //     {

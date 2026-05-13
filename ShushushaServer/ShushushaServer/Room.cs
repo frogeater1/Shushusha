@@ -155,6 +155,7 @@ public class Room
                 CurrentRound++;
                 ResetMagic();
                 ResetIndicators();
+                ResetPlayerDeaths();
             }
 
             Stage = stage;
@@ -168,6 +169,7 @@ public class Room
                 TargetFloor = TargetFloor,
                 Magic = Magic,
                 Indicators = Indicators,
+                Players = GetPlayersSnapshot(),
                 TargetClients = clients.Where(x => x != null).Select(x => x!).ToList()
             };
         }
@@ -181,6 +183,12 @@ public class Room
             {
                 result = null!;
                 return ResCode.InvalidRoomStage;
+            }
+
+            if (players[idInRoom]!.IsDead)
+            {
+                result = null!;
+                return ResCode.PlayerDisabled;
             }
 
             if (Mouse == null || Mouse.IdInRoom == idInRoom)
@@ -261,6 +269,7 @@ public class Room
             foreach (var killedShark in killedSharks)
             {
                 killedSharkIds.Add(killedShark.IdInRoom);
+                killedShark.IsDead = true;
             }
 
             Magic += 2 * killedSharks.Count;
@@ -386,7 +395,8 @@ public class Room
             StageSeconds = result.StageSeconds,
             CurrentFloor = result.CurrentFloor,
             Magic = result.Magic,
-            Indicators = result.Indicators
+            Indicators = result.Indicators,
+            Players = result.Players
         });
 
         Console.WriteLine($"Broadcast {JsonSerializer.Serialize(packet)} ");
@@ -421,6 +431,17 @@ public class Room
         playerIndicatorChanges.Clear();
         killedSharkIds.Clear();
         initialIndicators = CloneIndicators(Indicators);
+    }
+
+    private void ResetPlayerDeaths()
+    {
+        foreach (var player in players)
+        {
+            if (player != null)
+            {
+                player.IsDead = false;
+            }
+        }
     }
 
     private void RebuildIndicators()
@@ -600,6 +621,7 @@ public class StageChangeResult
     public int TargetFloor { get; set; }
     public int Magic { get; set; }
     public List<ServerIndicator> Indicators { get; set; } = new();
+    public List<Player> Players { get; set; } = new();
     public List<TcpClient> TargetClients { get; set; } = new();
 }
 

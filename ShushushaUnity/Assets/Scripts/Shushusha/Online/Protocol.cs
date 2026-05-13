@@ -29,6 +29,7 @@ namespace ShushushaServer
         Ready = 2003,
         ChangeStage = 2004,
         ChangeIndicator = 2005,
+        PlayerDied = 2006,
     }
 
     public class create_room_s2c
@@ -128,11 +129,17 @@ namespace ShushushaServer
         public int CurrentFloor { get; set; }
         public int Magic { get; set; }
         public List<ServerIndicator> Indicators { get; set; } = new();
+        public List<Player> Players { get; set; } = new();
     }
 
     public class ChangeIndicator
     {
         public List<ServerIndicator> Indicators { get; set; } = new();
+    }
+
+    public class PlayerDied
+    {
+        public List<Player> KilledSharks { get; set; } = new();
     }
 
     public enum IndicatorChangeKind
@@ -172,6 +179,7 @@ namespace ShushushaServer
         public int IdInRoom { get; set; }
 
         public bool Ready { get; set; }
+        public bool IsDead { get; set; }
     }
 
     public enum ResCode
@@ -186,7 +194,8 @@ namespace ShushushaServer
         NotAllPlayersReady = 7,
         InvalidRoomState = 8,
         InvalidRoomStage = 9,
-        KillSharkFailed = 10
+        KillSharkFailed = 10,
+        PlayerDisabled = 11
     }
 
     public enum GameStage
