@@ -27,6 +27,7 @@ public class Game : MonoSingletonBase<Game>
     public List<GameObject> 指示物列表 = new();
     private Window indicatorMenuWindow;
     private CancellationTokenSource stageCountdownCts;
+    private BlackoutCameraState? blackoutCameraState;
 
     protected override void Awake()
     {
@@ -136,6 +137,10 @@ public class Game : MonoSingletonBase<Game>
         uiMain.m_round.SetCountText(msgData.Round);
         uiMain.m_stage.text = $"{msgData.Stage}阶段";
         CancelStageCountdown();
+        if (msgData.Stage != GameStage.Hide)
+        {
+            RestoreBlackout();
+        }
 
         if (msgData.StageSeconds > 0)
         {
@@ -231,7 +236,7 @@ public class Game : MonoSingletonBase<Game>
 
     public void OnIndicatorClicked(GameObject target)
     {
-        if (CurrentStage != GameStage.Hide || Identity == PlayerIdentity.Mouse)
+        if ((CurrentStage != GameStage.Hide && CurrentStage != GameStage.Kill) || Identity == PlayerIdentity.Mouse)
         {
             return;
         }
@@ -291,6 +296,7 @@ public class Game : MonoSingletonBase<Game>
         }
 
         indicatorMenuWindow.contentPane.data = indicator;
+        FilterIndicatorMenuOptions((UI_Menu)indicatorMenuWindow.contentPane);
         var position = GRoot.inst.GlobalToLocal(Stage.inst.touchPosition);
         if (position.y > GRoot.inst.height - 300f)
         {
@@ -322,7 +328,20 @@ public class Game : MonoSingletonBase<Game>
             return;
         }
 
-        if (!TryGetIndicatorChangeKind(context, menu, out var kind))
+        var itemIndex = GetIndicatorMenuItemIndex(context, menu);
+        if (!IsIndicatorMenuOptionVisible(itemIndex))
+        {
+            return;
+        }
+
+        if (CurrentStage == GameStage.Kill)
+        {
+            HideIndicatorMenu();
+            Debug.Log($"点击击杀阶段菜单选项: {itemIndex}");
+            return;
+        }
+
+        if (!TryGetIndicatorChangeKind(itemIndex, out var kind))
         {
             return;
         }
@@ -331,9 +350,34 @@ public class Game : MonoSingletonBase<Game>
         ChangeIndicator(indicator, kind).Forget();
     }
 
-    private static bool TryGetIndicatorChangeKind(EventContext context, UI_Menu menu, out IndicatorChangeKind kind)
+    private void FilterIndicatorMenuOptions(UI_Menu menu)
     {
-        var itemIndex = context.data is GObject item ? menu.m_menu.GetChildIndex(item) : -1;
+        for (var i = 0; i < menu.m_menu.numChildren; i++)
+        {
+            var child = menu.m_menu.GetChildAt(i);
+            var visible = IsIndicatorMenuOptionVisible(i);
+            child.visible = visible;
+            child.touchable = visible;
+        }
+    }
+
+    private bool IsIndicatorMenuOptionVisible(int itemIndex)
+    {
+        return CurrentStage switch
+        {
+            GameStage.Hide => itemIndex is >= 0 and <= 2,
+            GameStage.Kill => itemIndex == 3,
+            _ => false
+        };
+    }
+
+    private static int GetIndicatorMenuItemIndex(EventContext context, UI_Menu menu)
+    {
+        return context.data is GObject item ? menu.m_menu.GetChildIndex(item) : -1;
+    }
+
+    private static bool TryGetIndicatorChangeKind(int itemIndex, out IndicatorChangeKind kind)
+    {
         switch (itemIndex)
         {
             case 0:
@@ -451,24 +495,9 @@ public class Game : MonoSingletonBase<Game>
 
     private void BlackoutForMouse()
     {
-        foreach (var renderer in FindObjectsByType<Renderer>(FindObjectsInactive.Include))
+        if (blackoutCameraState.HasValue)
         {
-            if (IsUiObject(renderer.gameObject))
-            {
-                continue;
-            }
-
-            renderer.enabled = false;
-        }
-
-        foreach (var light in FindObjectsByType<Light>(FindObjectsInactive.Include))
-        {
-            if (IsUiObject(light.gameObject))
-            {
-                continue;
-            }
-
-            light.enabled = false;
+            return;
         }
 
         var mainCamera = Camera.main;
@@ -477,9 +506,48 @@ public class Game : MonoSingletonBase<Game>
             return;
         }
 
+        blackoutCameraState = new BlackoutCameraState(
+            mainCamera,
+            mainCamera.clearFlags,
+            mainCamera.backgroundColor,
+            mainCamera.cullingMask);
         mainCamera.clearFlags = CameraClearFlags.SolidColor;
         mainCamera.backgroundColor = Color.black;
         mainCamera.cullingMask = 0;
+    }
+
+    private void RestoreBlackout()
+    {
+        if (!blackoutCameraState.HasValue)
+        {
+            return;
+        }
+
+        var state = blackoutCameraState.Value;
+        if (state.Camera != null)
+        {
+            state.Camera.clearFlags = state.ClearFlags;
+            state.Camera.backgroundColor = state.BackgroundColor;
+            state.Camera.cullingMask = state.CullingMask;
+        }
+
+        blackoutCameraState = null;
+    }
+
+    private readonly struct BlackoutCameraState
+    {
+        public BlackoutCameraState(Camera camera, CameraClearFlags clearFlags, Color backgroundColor, int cullingMask)
+        {
+            Camera = camera;
+            ClearFlags = clearFlags;
+            BackgroundColor = backgroundColor;
+            CullingMask = cullingMask;
+        }
+
+        public Camera Camera { get; }
+        public CameraClearFlags ClearFlags { get; }
+        public Color BackgroundColor { get; }
+        public int CullingMask { get; }
     }
 
     private bool IsUiObject(GameObject target)
