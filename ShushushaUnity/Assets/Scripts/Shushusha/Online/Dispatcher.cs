@@ -46,7 +46,7 @@ namespace ShushushaServer
                     //     EventManager.CallLogicUpdate();
                     //     break;
                     case MsgId.create_room_s2c or MsgId.join_room_s2c or MsgId.ready_s2c or MsgId.game_start_s2c
-                        or MsgId.change_indicator_s2c:
+                        or MsgId.change_indicator_s2c or MsgId.kill_shark_s2c:
                         Request.Response(msg);
                         break;
                     case MsgId.JoinRoom:

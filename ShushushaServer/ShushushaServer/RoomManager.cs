@@ -11,7 +11,7 @@ public class RoomManager
     private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan ObserveStageDuration = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan HideStageDuration = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan KillStageDuration = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan KillStageDuration = TimeSpan.FromSeconds(40);
 
     private readonly ConcurrentDictionary<int, Room> rooms = new();
     private readonly ConcurrentDictionary<TcpClient, PlayerSession> playerSessions = new();
@@ -163,7 +163,7 @@ public class RoomManager
             Dispatcher.Send(targetClient, gameStartMsg);
         }
 
-        BroadcastStageChange(room, GameStage.Observe);
+        room.BroadcastStageChange(GameStage.Observe, GetStageDuration(GameStage.Observe));
     }
 
     public void ChangeIndicator(change_indicator_c2s msgData, TcpClient client)
@@ -195,6 +195,28 @@ public class RoomManager
         foreach (var sharkClient in room.GetSharkClients())
         {
             Dispatcher.Send(sharkClient, packet);
+        }
+    }
+
+    public void KillShark(kill_shark_c2s msgData, TcpClient client)
+    {
+        if (!TryGetSessionRoom(client, out var session, out var room))
+        {
+            Console.WriteLine("KillShark ignored because client has no room session.");
+            return;
+        }
+
+        var resCode = room.KillShark(msgData, session.IdInRoom, out var killedSharks);
+        Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.kill_shark_s2c, new kill_shark_s2c
+        {
+            ResCode = resCode,
+            Magic = room.Magic,
+            KilledSharks = killedSharks
+        }));
+
+        if (resCode == ResCode.KillSharkFailed)
+        {
+            room.BroadcastStageChange(GameStage.Hide, GetStageDuration(GameStage.Hide));
         }
     }
 
@@ -267,28 +289,8 @@ public class RoomManager
         {
             if (room.TryGetNextStage(now, out var nextStage))
             {
-                BroadcastStageChange(room, nextStage);
+                room.BroadcastStageChange(nextStage, GetStageDuration(nextStage));
             }
-        }
-    }
-
-    private static void BroadcastStageChange(Room room, GameStage stage)
-    {
-        var result = room.ChangeStage(stage, GetStageDuration(stage));
-        var packet = Dispatcher.CreatePacket(MsgId.ChangeStage, new ChangeStage
-        {
-            Round = result.Round,
-            Stage = result.Stage,
-            StageSeconds = result.StageSeconds,
-            CurrentFloor = result.CurrentFloor,
-            Magic = result.Magic,
-            Indicators = result.Indicators
-        });
-
-        Console.WriteLine($"Broadcast {JsonSerializer.Serialize(packet)} ");
-        foreach (TcpClient targetClient in result.TargetClients)
-        {
-            Dispatcher.Send(targetClient, packet);
         }
     }
 

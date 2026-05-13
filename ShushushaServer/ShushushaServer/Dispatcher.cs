@@ -54,6 +54,9 @@ public static partial class Dispatcher
                     case MsgId.change_indicator_c2s:
                         RoomManager.Instance.ChangeIndicator(GetPacketData<change_indicator_c2s>(packet)!, client);
                         break;
+                    case MsgId.kill_shark_c2s:
+                        RoomManager.Instance.KillShark(GetPacketData<kill_shark_c2s>(packet)!, client);
+                        break;
                 }
             }
         }

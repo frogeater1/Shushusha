@@ -236,7 +236,12 @@ public class Game : MonoSingletonBase<Game>
 
     public void OnIndicatorClicked(GameObject target)
     {
-        if ((CurrentStage != GameStage.Hide && CurrentStage != GameStage.Kill) || Identity == PlayerIdentity.Mouse)
+        if (CurrentStage != GameStage.Hide && CurrentStage != GameStage.Kill)
+        {
+            return;
+        }
+
+        if (CurrentStage == GameStage.Hide && Identity == PlayerIdentity.Mouse)
         {
             return;
         }
@@ -337,7 +342,7 @@ public class Game : MonoSingletonBase<Game>
         if (CurrentStage == GameStage.Kill)
         {
             HideIndicatorMenu();
-            Debug.Log($"点击击杀阶段菜单选项: {itemIndex}");
+            KillShark(indicator).Forget();
             return;
         }
 
@@ -348,6 +353,41 @@ public class Game : MonoSingletonBase<Game>
 
         HideIndicatorMenu();
         ChangeIndicator(indicator, kind).Forget();
+    }
+
+    private async UniTaskVoid KillShark(GameObject indicator)
+    {
+        if (CurrentStage != GameStage.Kill || Identity != PlayerIdentity.Mouse)
+        {
+            return;
+        }
+
+        var indicatorId = 指示物列表.IndexOf(indicator);
+        if (indicatorId < 0)
+        {
+            Debug.LogWarning("指示物未配置到指示物列表");
+            return;
+        }
+
+        var msgData = await Request.KillShark(indicatorId);
+        SetMagic(msgData.Magic);
+        if (msgData.ResCode != ResCode.Success)
+        {
+            if (msgData.ResCode == ResCode.InvalidRoomStage)
+            {
+                uilobby.ShowTip("当前阶段不能查鲨");
+            }
+            else if (msgData.ResCode == ResCode.KillSharkFailed)
+            {
+                uilobby.ShowTip("查鲨失败");
+            }
+
+            Debug.LogWarning($"查鲨失败: {msgData.ResCode}");
+            return;
+        }
+
+        uilobby.ShowTip($"查鲨成功，找到 {msgData.KilledSharks.Count} 名鲨鱼");
+        Debug.Log($"查鲨请求完成，命中鲨鱼数量: {msgData.KilledSharks.Count}");
     }
 
     private void FilterIndicatorMenuOptions(UI_Menu menu)

@@ -16,12 +16,14 @@ namespace ShushushaServer
             { MsgId.ready_s2c, new UniTaskCompletionSource<JsonPacket>() },
             { MsgId.game_start_s2c, new UniTaskCompletionSource<JsonPacket>() },
             { MsgId.change_indicator_s2c, new UniTaskCompletionSource<JsonPacket>() },
+            { MsgId.kill_shark_s2c, new UniTaskCompletionSource<JsonPacket>() },
         };
 
         public static async UniTask<create_room_s2c> CreateRoom()
         {
             Network.Connect();
 
+            var source = ResetTask(MsgId.create_room_s2c);
             Dispatcher.SendMsg(Dispatcher.CreatePacket(MsgId.create_room_c2s, new create_room_c2s
             {
                 Player = new Player
@@ -29,7 +31,6 @@ namespace ShushushaServer
                     Uid = Game.Instance.me.Uid
                 }
             }));
-            var source = tasks[MsgId.create_room_s2c];
             return Dispatcher.GetPacketData<create_room_s2c>(await source.Task);
         }
 
@@ -37,6 +38,7 @@ namespace ShushushaServer
         {
             Network.Connect();
 
+            var source = ResetTask(MsgId.join_room_s2c);
             Dispatcher.SendMsg(Dispatcher.CreatePacket(MsgId.join_room_c2s, new join_room_c2s
             {
                 RoomId = roomId,
@@ -45,37 +47,53 @@ namespace ShushushaServer
                     Uid = Game.Instance.me.Uid
                 }
             }));
-            var source = tasks[MsgId.join_room_s2c];
             return Dispatcher.GetPacketData<join_room_s2c>(await source.Task);
         }
 
 
         public static async UniTask<ready_s2c> Ready()
         {
+            var source = ResetTask(MsgId.ready_s2c);
             Dispatcher.SendMsg(Dispatcher.CreatePacket(MsgId.ready_c2s, new ready_c2s
             {
                 IsReady = Game.Instance.me.Ready
             }));
-            var source = tasks[MsgId.ready_s2c];
             return Dispatcher.GetPacketData<ready_s2c>(await source.Task);
         }
 
         public static async UniTask<game_start_s2c> GameStart()
         {
+            var source = ResetTask(MsgId.game_start_s2c);
             Dispatcher.SendMsg(Dispatcher.CreatePacket(MsgId.game_start_c2s, new game_start_c2s()));
-            var source = tasks[MsgId.game_start_s2c];
             return Dispatcher.GetPacketData<game_start_s2c>(await source.Task);
         }
 
         public static async UniTask<change_indicator_s2c> ChangeIndicator(int indicatorId, IndicatorChangeKind kind)
         {
+            var source = ResetTask(MsgId.change_indicator_s2c);
             Dispatcher.SendMsg(Dispatcher.CreatePacket(MsgId.change_indicator_c2s, new change_indicator_c2s
             {
                 IndicatorId = indicatorId,
                 Kind = kind
             }));
-            var source = tasks[MsgId.change_indicator_s2c];
             return Dispatcher.GetPacketData<change_indicator_s2c>(await source.Task);
+        }
+
+        public static async UniTask<kill_shark_s2c> KillShark(int indicatorId)
+        {
+            var source = ResetTask(MsgId.kill_shark_s2c);
+            Dispatcher.SendMsg(Dispatcher.CreatePacket(MsgId.kill_shark_c2s, new kill_shark_c2s
+            {
+                IndicatorId = indicatorId
+            }));
+            return Dispatcher.GetPacketData<kill_shark_s2c>(await source.Task);
+        }
+
+        private static UniTaskCompletionSource<JsonPacket> ResetTask(MsgId msgId)
+        {
+            var source = new UniTaskCompletionSource<JsonPacket>();
+            tasks[msgId] = source;
+            return source;
         }
 
         public static void Response(JsonPacket msg)

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Net.Sockets;
+using System.Text.Json;
 
 namespace ShushushaServer;
 
@@ -17,8 +18,9 @@ public class Room
     public int Magic;
     public GameStage Stage = GameStage.None;
     public DateTime StageEndTimeUtc = DateTime.MaxValue;
-    private readonly List<ServerIndicator> initialIndicators;
+    private List<ServerIndicator> initialIndicators;
     private readonly Dictionary<int, PlayerIndicatorChange> playerIndicatorChanges = new();
+    private readonly HashSet<int> killedSharkIds = new();
     private int nextIndicatorChangeSequence;
     public List<ServerIndicator> Indicators;
     public Player? Mouse;
@@ -143,6 +145,11 @@ public class Room
     {
         lock (this)
         {
+            if (Stage == GameStage.Kill && stage == GameStage.Hide)
+            {
+                SettleKillStage();
+            }
+
             if (stage == GameStage.Observe || (stage == GameStage.Hide && Stage != GameStage.Observe))
             {
                 CurrentRound++;
@@ -176,6 +183,12 @@ public class Room
                 return ResCode.InvalidRoomStage;
             }
 
+            if (Mouse == null || Mouse.IdInRoom == idInRoom)
+            {
+                result = null!;
+                return ResCode.InvalidRoomState;
+            }
+
             var currentIndicator = Indicators.FirstOrDefault(x => x.IndicatorId == msgData.IndicatorId);
             if (currentIndicator == null)
             {
@@ -183,7 +196,7 @@ public class Room
                 return ResCode.InvalidRoomState;
             }
 
-            playerIndicatorChanges.TryGetValue(idInRoom, out var previousChange);
+            var hasPreviousChange = playerIndicatorChanges.TryGetValue(idInRoom, out var previousChange);
 
             if (!TryCreateIndicatorChange(msgData, currentIndicator, out var change))
             {
@@ -193,12 +206,64 @@ public class Room
 
             change.Sequence = ++nextIndicatorChangeSequence;
             playerIndicatorChanges[idInRoom] = change;
+            if (!hasPreviousChange)
+            {
+                Magic--;
+            }
+
             RebuildIndicators();
 
             result = new ChangeIndicator
             {
                 Indicators = GetChangedIndicators(previousChange, change)
             };
+            return ResCode.Success;
+        }
+    }
+
+    public ResCode KillShark(kill_shark_c2s msgData, int idInRoom, out List<Player> killedSharks)
+    {
+        lock (this)
+        {
+            killedSharks = new List<Player>();
+
+            if (Stage != GameStage.Kill)
+            {
+                return ResCode.InvalidRoomStage;
+            }
+
+            if (Mouse == null || Mouse.IdInRoom != idInRoom)
+            {
+                return ResCode.InvalidRoomState;
+            }
+
+            if (Indicators.All(x => x.IndicatorId != msgData.IndicatorId))
+            {
+                return ResCode.InvalidRoomState;
+            }
+
+            killedSharks = playerIndicatorChanges
+                .Where(x => x.Value.IndicatorId == msgData.IndicatorId)
+                .Select(x => x.Key)
+                .Where(changedPlayerId => Mouse.IdInRoom != changedPlayerId)
+                .Where(changedPlayerId => !killedSharkIds.Contains(changedPlayerId))
+                .Select(changedPlayerId => players[changedPlayerId])
+                .Where(player => player != null)
+                .Select(player => player!)
+                .ToList();
+
+            if (killedSharks.Count == 0)
+            {
+                Magic--;
+                return ResCode.KillSharkFailed;
+            }
+
+            foreach (var killedShark in killedSharks)
+            {
+                killedSharkIds.Add(killedShark.IdInRoom);
+            }
+
+            Magic += 2 * killedSharks.Count;
             return ResCode.Success;
         }
     }
@@ -311,6 +376,26 @@ public class Room
         }
     }
 
+    public void BroadcastStageChange(GameStage stage, TimeSpan stageDuration)
+    {
+        var result = ChangeStage(stage, stageDuration);
+        var packet = Dispatcher.CreatePacket(MsgId.ChangeStage, new ChangeStage
+        {
+            Round = result.Round,
+            Stage = result.Stage,
+            StageSeconds = result.StageSeconds,
+            CurrentFloor = result.CurrentFloor,
+            Magic = result.Magic,
+            Indicators = result.Indicators
+        });
+
+        Console.WriteLine($"Broadcast {JsonSerializer.Serialize(packet)} ");
+        foreach (var targetClient in result.TargetClients)
+        {
+            Dispatcher.Send(targetClient, packet);
+        }
+    }
+
     private static Player CreateRoomPlayer(int uid, int idInRoom)
     {
         return new Player
@@ -326,10 +411,16 @@ public class Room
         Magic = CalculateInitialMagic(players.OfType<Player>().Count(), CurrentRound);
     }
 
+    private void SettleKillStage()
+    {
+        CurrentFloor += Magic;
+    }
+
     private void ResetIndicators()
     {
         playerIndicatorChanges.Clear();
-        Indicators = CloneIndicators(initialIndicators);
+        killedSharkIds.Clear();
+        initialIndicators = CloneIndicators(Indicators);
     }
 
     private void RebuildIndicators()
