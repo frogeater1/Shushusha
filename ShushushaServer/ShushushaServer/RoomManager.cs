@@ -174,11 +174,12 @@ public class RoomManager
             return;
         }
 
-        if (!room.ChangeIndicator(msgData, session.IdInRoom, out var changeIndicator))
+        var resCode = room.ChangeIndicator(msgData, session.IdInRoom, out var changeIndicator);
+        if (resCode != ResCode.Success)
         {
             Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.change_indicator_s2c, new change_indicator_s2c
             {
-                ResCode = ResCode.InvalidRoomState
+                ResCode = resCode
             }));
             return;
         }

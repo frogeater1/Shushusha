@@ -170,7 +170,7 @@ namespace UI
             Debug.LogError(tip);
         }
 
-        private void ShowTip(string tip)
+        public void ShowTip(string tip)
         {
             if (_tipWindow == null)
             {

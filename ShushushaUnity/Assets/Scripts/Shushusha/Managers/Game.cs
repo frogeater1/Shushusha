@@ -128,6 +128,7 @@ public class Game : MonoSingletonBase<Game>
 
     public void OnChangeStage(ChangeStage msgData)
     {
+        HideIndicatorMenu();
         CurrentStage = msgData.Stage;
         SetFloor(msgData.CurrentFloor);
         SetMagic(msgData.Magic);
@@ -266,6 +267,11 @@ public class Game : MonoSingletonBase<Game>
         var msgData = await Request.ChangeIndicator(indicatorId, kind);
         if (msgData.ResCode != ResCode.Success)
         {
+            if (msgData.ResCode == ResCode.InvalidRoomStage)
+            {
+                uilobby.ShowTip("当前阶段不能改变指示物");
+            }
+
             Debug.LogWarning($"发送指示物变化失败: {msgData.ResCode}");
             return;
         }

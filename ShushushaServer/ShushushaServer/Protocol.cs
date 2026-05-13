@@ -170,7 +170,8 @@ namespace ShushushaServer
         NotRoomOwner = 5,
         NotEnoughPlayers = 6,
         NotAllPlayersReady = 7,
-        InvalidRoomState = 8
+        InvalidRoomState = 8,
+        InvalidRoomStage = 9
     }
 
     public enum GameStage

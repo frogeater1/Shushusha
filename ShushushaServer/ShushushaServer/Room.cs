@@ -166,15 +166,21 @@ public class Room
         }
     }
 
-    public bool ChangeIndicator(change_indicator_c2s msgData, int idInRoom, out ChangeIndicator result)
+    public ResCode ChangeIndicator(change_indicator_c2s msgData, int idInRoom, out ChangeIndicator result)
     {
         lock (this)
         {
+            if (Stage != GameStage.Hide)
+            {
+                result = null!;
+                return ResCode.InvalidRoomStage;
+            }
+
             var currentIndicator = Indicators.FirstOrDefault(x => x.IndicatorId == msgData.IndicatorId);
             if (currentIndicator == null)
             {
                 result = null!;
-                return false;
+                return ResCode.InvalidRoomState;
             }
 
             playerIndicatorChanges.TryGetValue(idInRoom, out var previousChange);
@@ -182,7 +188,7 @@ public class Room
             if (!TryCreateIndicatorChange(msgData, currentIndicator, out var change))
             {
                 result = null!;
-                return false;
+                return ResCode.InvalidRoomState;
             }
 
             change.Sequence = ++nextIndicatorChangeSequence;
@@ -193,7 +199,7 @@ public class Room
             {
                 Indicators = GetChangedIndicators(previousChange, change)
             };
-            return true;
+            return ResCode.Success;
         }
     }
 
