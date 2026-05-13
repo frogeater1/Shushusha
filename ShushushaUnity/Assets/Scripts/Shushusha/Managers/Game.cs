@@ -301,8 +301,12 @@ public class Game : MonoSingletonBase<Game>
 
     private async UniTaskVoid ChangeIndicator(GameObject indicator, IndicatorChangeKind kind)
     {
-        if (CurrentStage != GameStage.Hide || Identity == PlayerIdentity.Mouse)
+        if (CurrentStage != GameStage.Hide || Identity == PlayerIdentity.Mouse || me.IsDead)
         {
+            if (me.IsDead)
+            {
+                uilobby.ShowTip("你当前无法操作指示物");
+            }
             return;
         }
 
@@ -332,6 +336,12 @@ public class Game : MonoSingletonBase<Game>
 
     private void ShowIndicatorMenu(GameObject indicator)
     {
+        if (CurrentStage == GameStage.Hide && Identity != PlayerIdentity.Mouse && me.IsDead)
+        {
+            uilobby.ShowTip("你当前无法操作指示物");
+            return;
+        }
+
         if (indicatorMenuWindow == null)
         {
             var menu = UI_Menu.CreateInstance();
