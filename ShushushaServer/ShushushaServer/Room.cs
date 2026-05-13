@@ -18,6 +18,8 @@ public class Room
     public GameStage Stage = GameStage.None;
     public DateTime StageEndTimeUtc = DateTime.MaxValue;
     private readonly List<ServerIndicator> initialIndicators;
+    private readonly Dictionary<int, PlayerIndicatorChange> playerIndicatorChanges = new();
+    private long nextIndicatorChangeSequence;
     public List<ServerIndicator> Indicators;
     public Player? Mouse;
     public Player? SharkKing;
@@ -164,27 +166,33 @@ public class Room
         }
     }
 
-    public bool ChangeIndicator(change_indicator_c2s msgData, out ChangeIndicator result)
+    public bool ChangeIndicator(change_indicator_c2s msgData, int idInRoom, out ChangeIndicator result)
     {
         lock (this)
         {
-            result = new ChangeIndicator
+            var currentIndicator = Indicators.FirstOrDefault(x => x.IndicatorId == msgData.IndicatorId);
+            if (currentIndicator == null)
             {
-                IndicatorId = msgData.IndicatorId,
-                Position = msgData.Position,
-                Rotation = msgData.Rotation,
-                Color = msgData.Color
-            };
-
-            var indicator = Indicators.FirstOrDefault(x => x.IndicatorId == msgData.IndicatorId);
-            if (indicator == null)
-            {
+                result = null!;
                 return false;
             }
 
-            indicator.Position = msgData.Position;
-            indicator.Rotation = msgData.Rotation;
-            indicator.Color = msgData.Color;
+            playerIndicatorChanges.TryGetValue(idInRoom, out var previousChange);
+
+            if (!TryCreateIndicatorChange(msgData, currentIndicator, out var change))
+            {
+                result = null!;
+                return false;
+            }
+
+            change.Sequence = ++nextIndicatorChangeSequence;
+            playerIndicatorChanges[idInRoom] = change;
+            RebuildIndicators();
+
+            result = new ChangeIndicator
+            {
+                Indicators = GetChangedIndicators(previousChange, change)
+            };
             return true;
         }
     }
@@ -314,7 +322,90 @@ public class Room
 
     private void ResetIndicators()
     {
+        playerIndicatorChanges.Clear();
         Indicators = CloneIndicators(initialIndicators);
+    }
+
+    private void RebuildIndicators()
+    {
+        Indicators = CloneIndicators(initialIndicators);
+
+        var effectiveChanges = playerIndicatorChanges.Values
+            .GroupBy(x => (x.IndicatorId, x.Kind))
+            .Select(x => x.MaxBy(change => change.Sequence)!)
+            .OrderBy(x => x.Sequence);
+
+        foreach (var change in effectiveChanges)
+        {
+            var indicator = Indicators.FirstOrDefault(x => x.IndicatorId == change.IndicatorId);
+            if (indicator == null)
+            {
+                continue;
+            }
+
+            ApplyPlayerIndicatorChange(indicator, change);
+        }
+    }
+
+    private List<ServerIndicator> GetChangedIndicators(PlayerIndicatorChange? previousChange,
+        PlayerIndicatorChange currentChange)
+    {
+        var changedIndicatorIds = new HashSet<int> { currentChange.IndicatorId };
+        if (previousChange != null)
+        {
+            changedIndicatorIds.Add(previousChange.IndicatorId);
+        }
+
+        return Indicators
+            .Where(indicator => changedIndicatorIds.Contains(indicator.IndicatorId))
+            .Select(CloneIndicator)
+            .ToList();
+    }
+
+    private static bool TryCreateIndicatorChange(change_indicator_c2s msgData, ServerIndicator currentIndicator,
+        out PlayerIndicatorChange change)
+    {
+        change = new PlayerIndicatorChange
+        {
+            IndicatorId = msgData.IndicatorId,
+            Kind = msgData.Kind,
+            Position = currentIndicator.Position,
+            Rotation = currentIndicator.Rotation,
+            Color = currentIndicator.Color
+        };
+
+        switch (msgData.Kind)
+        {
+            case IndicatorChangeKind.Position:
+                change.Position = CreateRandomIndicatorPosition(currentIndicator.Position.Y);
+                break;
+            case IndicatorChangeKind.Color:
+                change.Color = CreateRandomIndicatorColor();
+                break;
+            case IndicatorChangeKind.Rotation:
+                change.Rotation = CreateRandomIndicatorRotation();
+                break;
+            default:
+                return false;
+        }
+
+        return true;
+    }
+
+    private static void ApplyPlayerIndicatorChange(ServerIndicator indicator, PlayerIndicatorChange change)
+    {
+        switch (change.Kind)
+        {
+            case IndicatorChangeKind.Position:
+                indicator.Position = change.Position;
+                break;
+            case IndicatorChangeKind.Color:
+                indicator.Color = change.Color;
+                break;
+            case IndicatorChangeKind.Rotation:
+                indicator.Rotation = change.Rotation;
+                break;
+        }
     }
 
     private static List<ServerIndicator> CloneIndicators(List<ServerIndicator> indicators)
@@ -352,10 +443,15 @@ public class Room
 
     private static ServerVector3 CreateRandomIndicatorPosition()
     {
+        return CreateRandomIndicatorPosition(0.5f);
+    }
+
+    private static ServerVector3 CreateRandomIndicatorPosition(float y)
+    {
         return new ServerVector3
         {
             X = Random.Shared.NextSingle() * 20f - 10f,
-            Y = 0.5f,
+            Y = y,
             Z = Random.Shared.NextSingle() * 20f - 10f
         };
     }
@@ -417,4 +513,14 @@ public class GameStartResult
     public int CurrentFloor { get; set; }
     public int TargetFloor { get; set; }
     public List<TcpClient> TargetClients { get; set; } = new();
+}
+
+public class PlayerIndicatorChange
+{
+    public int IndicatorId { get; set; }
+    public IndicatorChangeKind Kind { get; set; }
+    public long Sequence { get; set; }
+    public ServerVector3 Position { get; set; }
+    public ServerVector3 Rotation { get; set; }
+    public ServerColor Color { get; set; }
 }

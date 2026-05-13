@@ -74,12 +74,8 @@ namespace ShushushaServer
 
     public class change_indicator_c2s
     {
-        public int RoomId { get; set; }
-        public int IdInRoom { get; set; }
         public int IndicatorId { get; set; }
-        public ServerVector3 Position { get; set; } = new();
-        public ServerVector3 Rotation { get; set; } = new();
-        public ServerColor Color { get; set; } = new();
+        public IndicatorChangeKind Kind { get; set; }
     }
 
     public class change_indicator_s2c
@@ -122,10 +118,14 @@ namespace ShushushaServer
 
     public class ChangeIndicator
     {
-        public int IndicatorId { get; set; }
-        public ServerVector3 Position { get; set; } = new();
-        public ServerVector3 Rotation { get; set; } = new();
-        public ServerColor Color { get; set; } = new();
+        public List<ServerIndicator> Indicators { get; set; } = new();
+    }
+
+    public enum IndicatorChangeKind
+    {
+        Position = 0,
+        Color = 1,
+        Rotation = 2
     }
 
     public class ServerIndicator

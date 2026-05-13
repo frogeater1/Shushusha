@@ -4,7 +4,6 @@ using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 
 namespace ShushushaServer
 {
@@ -68,32 +67,12 @@ namespace ShushushaServer
             return Dispatcher.GetPacketData<game_start_s2c>(await source.Task);
         }
 
-        public static async UniTask<change_indicator_s2c> ChangeIndicator(int indicatorId, Vector3 position, Vector3 rotation, Color color)
+        public static async UniTask<change_indicator_s2c> ChangeIndicator(int indicatorId, IndicatorChangeKind kind)
         {
             Dispatcher.SendMsg(Dispatcher.CreatePacket(MsgId.change_indicator_c2s, new change_indicator_c2s
             {
-                RoomId = int.Parse(Game.Instance.uilobby.m_房间号.text),
-                IdInRoom = Game.Instance.me.IdInRoom,
                 IndicatorId = indicatorId,
-                Position = new ServerVector3
-                {
-                    X = position.x,
-                    Y = position.y,
-                    Z = position.z
-                },
-                Rotation = new ServerVector3
-                {
-                    X = rotation.x,
-                    Y = rotation.y,
-                    Z = rotation.z
-                },
-                Color = new ServerColor
-                {
-                    R = color.r,
-                    G = color.g,
-                    B = color.b,
-                    A = color.a
-                }
+                Kind = kind
             }));
             var source = tasks[MsgId.change_indicator_s2c];
             return Dispatcher.GetPacketData<change_indicator_s2c>(await source.Task);

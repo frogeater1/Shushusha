@@ -168,13 +168,13 @@ public class RoomManager
 
     public void ChangeIndicator(change_indicator_c2s msgData, TcpClient client)
     {
-        if (!TryGetSessionRoom(client, out _, out var room))
+        if (!TryGetSessionRoom(client, out var session, out var room))
         {
             Console.WriteLine("ChangeIndicator ignored because client has no room session.");
             return;
         }
 
-        if (!room.ChangeIndicator(msgData, out var changeIndicator))
+        if (!room.ChangeIndicator(msgData, session.IdInRoom, out var changeIndicator))
         {
             Dispatcher.Send(client, Dispatcher.CreatePacket(MsgId.change_indicator_s2c, new change_indicator_s2c
             {

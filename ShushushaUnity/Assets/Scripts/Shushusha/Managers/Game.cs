@@ -28,8 +28,6 @@ public class Game : MonoSingletonBase<Game>
     private Window indicatorMenuWindow;
     private CancellationTokenSource stageCountdownCts;
 
-    private const float IndicatorPositionRange = 10f;
-
     protected override void Awake()
     {
         base.Awake();
@@ -251,7 +249,7 @@ public class Game : MonoSingletonBase<Game>
         ShowIndicatorMenu(indicator);
     }
 
-    private async UniTaskVoid ChangeIndicator(GameObject indicator)
+    private async UniTaskVoid ChangeIndicator(GameObject indicator, IndicatorChangeKind kind)
     {
         if (CurrentStage != GameStage.Hide || Identity == PlayerIdentity.Mouse)
         {
@@ -265,8 +263,7 @@ public class Game : MonoSingletonBase<Game>
             return;
         }
 
-        var msgData = await Request.ChangeIndicator(indicatorId, indicator.transform.position,
-            indicator.transform.eulerAngles, GetIndicatorColor(indicator));
+        var msgData = await Request.ChangeIndicator(indicatorId, kind);
         if (msgData.ResCode != ResCode.Success)
         {
             Debug.LogWarning($"发送指示物变化失败: {msgData.ResCode}");
@@ -319,55 +316,39 @@ public class Game : MonoSingletonBase<Game>
             return;
         }
 
-        var itemIndex = context.data is GObject item ? menu.m_menu.GetChildIndex(item) : -1;
-        if (!ApplyIndicatorMenuAction(indicator, itemIndex))
+        if (!TryGetIndicatorChangeKind(context, menu, out var kind))
         {
             return;
         }
 
         HideIndicatorMenu();
-        ChangeIndicator(indicator).Forget();
+        ChangeIndicator(indicator, kind).Forget();
     }
 
-    private static bool ApplyIndicatorMenuAction(GameObject indicator, int itemIndex)
+    private static bool TryGetIndicatorChangeKind(EventContext context, UI_Menu menu, out IndicatorChangeKind kind)
     {
+        var itemIndex = context.data is GObject item ? menu.m_menu.GetChildIndex(item) : -1;
         switch (itemIndex)
         {
             case 0:
-                indicator.transform.position = new Vector3(
-                    UnityEngine.Random.Range(-IndicatorPositionRange, IndicatorPositionRange),
-                    indicator.transform.position.y,
-                    UnityEngine.Random.Range(-IndicatorPositionRange, IndicatorPositionRange));
+                kind = IndicatorChangeKind.Position;
                 return true;
             case 1:
-                SetIndicatorColor(indicator, new Color(
-                    UnityEngine.Random.value,
-                    UnityEngine.Random.value,
-                    UnityEngine.Random.value,
-                    1f));
+                kind = IndicatorChangeKind.Color;
                 return true;
             case 2:
-                indicator.transform.eulerAngles = new Vector3(
-                    UnityEngine.Random.Range(0f, 360f),
-                    UnityEngine.Random.Range(0f, 360f),
-                    UnityEngine.Random.Range(0f, 360f));
+                kind = IndicatorChangeKind.Rotation;
                 return true;
             default:
                 Debug.LogWarning($"未知指示物菜单选项: {itemIndex}");
+                kind = default;
                 return false;
         }
     }
 
     public void OnChangeIndicator(ChangeIndicator msgData)
     {
-        var indicator = FindIndicator(msgData.IndicatorId);
-        if (indicator == null)
-        {
-            Debug.LogWarning($"未找到指示物: {msgData.IndicatorId}");
-            return;
-        }
-
-        ApplyIndicatorChange(indicator, msgData);
+        ApplyIndicators(msgData.Indicators);
     }
 
     private static bool IsPointerOnUi()
@@ -429,26 +410,6 @@ public class Game : MonoSingletonBase<Game>
         }
 
         return 指示物列表[indicatorId];
-    }
-
-    private static Color GetIndicatorColor(GameObject indicator)
-    {
-        var renderer = indicator.GetComponent<Renderer>();
-        return renderer != null ? renderer.material.color : Color.white;
-    }
-
-    private static void SetIndicatorColor(GameObject indicator, Color color)
-    {
-        var renderer = indicator.GetComponent<Renderer>();
-        if (renderer != null)
-        {
-            renderer.material.color = color;
-        }
-    }
-
-    private static void ApplyIndicatorChange(GameObject indicator, ChangeIndicator msgData)
-    {
-        ApplyIndicatorTransform(indicator, msgData.Position, msgData.Rotation, msgData.Color);
     }
 
     private void ApplyIndicators(List<ServerIndicator> indicators)
